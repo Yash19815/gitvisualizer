@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Niraj Sharma
+// Licensed under CC BY-NC 4.0.
+// Commercial use requires a paid license.
+
 import { useState, useCallback, useEffect } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { PathInput } from './components/inputs/PathInput';

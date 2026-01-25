@@ -1,3 +1,7 @@
+// Copyright (c) 2026 Niraj Sharma
+// Licensed under CC BY-NC 4.0.
+// Commercial use requires a paid license.
+
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
