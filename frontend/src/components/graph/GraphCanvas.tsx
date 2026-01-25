@@ -8,21 +8,22 @@ import {
   useEdgesState,
   useReactFlow,
   BackgroundVariant,
-  type NodeMouseHandler,
+  type Node,
+  type Edge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import { CommitNode } from './CommitNode';
 import { UploadZone } from '../inputs/UploadZone';
 import { useRepositoryStore } from '../../store/repositoryStore';
-import { layoutCommitGraph, type CommitNode as CommitNodeType } from '../../utils/layoutEngine';
+import { layoutCommitGraph } from '../../utils/layoutEngine';
 
-const nodeTypes = { commit: CommitNode };
+const nodeTypes = { commit: CommitNode } as const;
 
 export function GraphCanvas() {
   const { repository, selectedCommit, setSelectedCommit, searchQuery } = useRepositoryStore();
-  const [nodes, setNodes, onNodesChange] = useNodesState<CommitNodeType>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const { fitView } = useReactFlow();
 
   // Filter commits based on search
@@ -51,8 +52,8 @@ export function GraphCanvas() {
         selected: selectedCommit?.hash === node.id,
       }));
 
-      setNodes(nodesWithSelection);
-      setEdges(layoutedEdges);
+      setNodes(nodesWithSelection as Node[]);
+      setEdges(layoutedEdges as Edge[]);
 
       setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
     } else {
@@ -62,7 +63,7 @@ export function GraphCanvas() {
   }, [filteredCommits, selectedCommit, setNodes, setEdges, fitView]);
 
   // Handle node click
-  const onNodeClick: NodeMouseHandler<CommitNodeType> = useCallback((_event, node) => {
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
     const commit = repository?.commits.find(c => c.hash === node.id);
     if (commit) {
       setSelectedCommit(selectedCommit?.hash === commit.hash ? null : commit);

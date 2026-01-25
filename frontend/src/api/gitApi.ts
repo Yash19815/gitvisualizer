@@ -1,7 +1,176 @@
-import type { LoadRepositoryResponse, Repository } from '../types';
+import type {
+  LoadRepositoryResponse,
+  Repository,
+  StatsResponse,
+  MetadataResponse,
+  CommitsResponse,
+  RepoStats,
+  RepositoryMetadata,
+  Commit,
+  PaginatedCommits,
+} from '../types';
 
 const API_BASE = '/api';
 
+// Get repository stats (fast - just commit count)
+export async function getRepoStats(path: string): Promise<RepoStats> {
+  const response = await fetch(`${API_BASE}/repository/stats`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+
+  const data: StatsResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get repository stats');
+  }
+
+  return data.data!;
+}
+
+// Get repository metadata (branches, tags, stats) without commits
+export async function getRepoMetadata(path: string): Promise<RepositoryMetadata> {
+  const response = await fetch(`${API_BASE}/repository/metadata`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+
+  const data: MetadataResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get repository metadata');
+  }
+
+  return data.data!;
+}
+
+// Get paginated commits
+export async function getCommitsPaginated(
+  path: string,
+  options: { maxCount?: number; skip?: number; firstParent?: boolean } = {}
+): Promise<PaginatedCommits> {
+  const { maxCount = 500, skip = 0, firstParent = false } = options;
+  const params = new URLSearchParams({
+    maxCount: maxCount.toString(),
+    skip: skip.toString(),
+    firstParent: firstParent.toString(),
+  });
+
+  const response = await fetch(`${API_BASE}/repository/commits?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  });
+
+  const data: CommitsResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get commits');
+  }
+
+  return data.data!;
+}
+
+// Stream commits using Server-Sent Events
+export interface StreamCallbacks {
+  onMetadata: (metadata: RepositoryMetadata) => void;
+  onCommits: (commits: Commit[], progress: number, total: number) => void;
+  onComplete: () => void;
+  onError: (error: Error) => void;
+}
+
+export function streamRepository(
+  path: string,
+  callbacks: StreamCallbacks,
+  options: { chunkSize?: number; firstParent?: boolean } = {}
+): () => void {
+  const { chunkSize = 500, firstParent = false } = options;
+  const params = new URLSearchParams({
+    chunkSize: chunkSize.toString(),
+    firstParent: firstParent.toString(),
+  });
+
+  // Use fetch with streaming for SSE over POST
+  const controller = new AbortController();
+
+  fetch(`${API_BASE}/repository/stream?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+    signal: controller.signal,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Failed to stream repository');
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Parse SSE events
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        let eventType = '';
+        let eventData = '';
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7);
+          } else if (line.startsWith('data: ')) {
+            eventData = line.slice(6);
+
+            if (eventType && eventData) {
+              try {
+                const parsed = JSON.parse(eventData);
+
+                switch (eventType) {
+                  case 'metadata':
+                    callbacks.onMetadata(parsed);
+                    break;
+                  case 'commits':
+                    callbacks.onCommits(parsed.commits, parsed.progress, parsed.total);
+                    break;
+                  case 'complete':
+                    callbacks.onComplete();
+                    break;
+                  case 'error':
+                    callbacks.onError(new Error(parsed.error));
+                    break;
+                }
+              } catch {
+                // Ignore parse errors
+              }
+              eventType = '';
+              eventData = '';
+            }
+          }
+        }
+      }
+    })
+    .catch((error) => {
+      if (error.name !== 'AbortError') {
+        callbacks.onError(error);
+      }
+    });
+
+  // Return abort function
+  return () => controller.abort();
+}
+
+// Legacy: Load full repository (for small repos)
 export async function loadRepository(path: string): Promise<Repository> {
   const response = await fetch(`${API_BASE}/repository/load`, {
     method: 'POST',
@@ -28,6 +197,42 @@ export async function validateRepository(path: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export function isGitUrl(input: string): boolean {
+  const patterns = [
+    /^https?:\/\/(www\.)?github\.com\/[\w.-]+\/[\w.-]+/,
+    /^https?:\/\/(www\.)?gitlab\.com\/[\w.-]+\/[\w.-]+/,
+    /^https?:\/\/(www\.)?bitbucket\.org\/[\w.-]+\/[\w.-]+/,
+    /^git@github\.com:[\w.-]+\/[\w.-]+/,
+    /^git@gitlab\.com:[\w.-]+\/[\w.-]+/,
+    /^https?:\/\/.*\.git$/,
+    /^git:\/\/.*/,
+  ];
+  return patterns.some((pattern) => pattern.test(input.trim()));
+}
+
+export async function cloneRepository(
+  url: string,
+  options: { shallow?: boolean } = {}
+): Promise<Repository> {
+  const { shallow = true } = options;
+
+  const response = await fetch(`${API_BASE}/repository/clone`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ url, shallow }),
+  });
+
+  const data: LoadRepositoryResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to clone repository');
+  }
+
+  return data.data!;
 }
 
 export async function uploadRepository(file: File): Promise<Repository> {

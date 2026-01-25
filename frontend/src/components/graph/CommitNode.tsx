@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position } from '@xyflow/react';
 import type { CommitNodeData } from '../../utils/layoutEngine';
 
 function formatRelativeDate(dateString: string): string {
@@ -16,7 +16,12 @@ function formatRelativeDate(dateString: string): string {
   return `${Math.floor(diffDays / 365)} years ago`;
 }
 
-export const CommitNode = memo(({ data, selected }: NodeProps<CommitNodeData>) => {
+interface CommitNodeProps {
+  data: CommitNodeData;
+  selected?: boolean;
+}
+
+export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
   const { commit, color } = data;
 
   return (

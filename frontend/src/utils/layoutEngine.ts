@@ -3,7 +3,7 @@ import type { Node, Edge } from '@xyflow/react';
 import type { Commit } from '../types';
 import { assignBranchColors } from './branchColors';
 
-export interface CommitNodeData {
+export interface CommitNodeData extends Record<string, unknown> {
   commit: Commit;
   color: string;
 }

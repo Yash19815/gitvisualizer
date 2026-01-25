@@ -2,14 +2,20 @@ import { useRepositoryStore } from '../../store/repositoryStore';
 import { getBranchColor } from '../../utils/branchColors';
 
 export function BranchList() {
-  const { repository, searchQuery, setSearchQuery } = useRepositoryStore();
+  const { repository, searchQuery, setSearchQuery, loadMoreCommits, isLoading, loadMode } =
+    useRepositoryStore();
 
   if (!repository) {
     return null;
   }
 
-  const localBranches = repository.branches.filter(b => !b.isRemote);
-  const remoteBranches = repository.branches.filter(b => b.isRemote);
+  const localBranches = repository.branches.filter((b) => !b.isRemote);
+  const remoteBranches = repository.branches.filter((b) => b.isRemote);
+
+  const hasMoreCommits =
+    repository.totalCommitCount &&
+    repository.loadedCommitCount &&
+    repository.loadedCommitCount < repository.totalCommitCount;
 
   return (
     <div className="h-full overflow-y-auto p-4">
@@ -51,10 +57,32 @@ export function BranchList() {
           {repository.path}
         </p>
         <div className="flex items-center gap-4 mt-2 text-xs text-gray-600">
-          <span>{repository.commits.length} commits</span>
+          <span>
+            {repository.commits.length.toLocaleString()}
+            {repository.totalCommitCount && repository.totalCommitCount > repository.commits.length
+              ? ` / ${repository.totalCommitCount.toLocaleString()}`
+              : ''}{' '}
+            commits
+          </span>
           <span>{localBranches.length} branches</span>
-          <span>{repository.tags.length} tags</span>
         </div>
+        <div className="flex items-center gap-4 mt-1 text-xs text-gray-600">
+          <span>{repository.tags.length} tags</span>
+          {loadMode !== 'full' && (
+            <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px]">
+              {loadMode === 'simplified' ? 'Simplified' : 'Streaming'}
+            </span>
+          )}
+        </div>
+        {hasMoreCommits && (
+          <button
+            onClick={loadMoreCommits}
+            disabled={isLoading}
+            className="mt-2 w-full px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {isLoading ? 'Loading...' : 'Load More Commits'}
+          </button>
+        )}
       </div>
 
       {/* Current Branch */}

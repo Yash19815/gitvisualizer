@@ -1,11 +1,13 @@
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { repositoryRoutes } from './routes/repository.routes.js';
 import { uploadRoutes } from './routes/upload.routes.js';
 
 export const app = express();
 
 app.use(cors());
+app.use(compression()); // Enable gzip compression for all responses
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {

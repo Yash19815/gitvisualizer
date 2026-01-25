@@ -1,16 +1,19 @@
 import { ReactFlowProvider } from '@xyflow/react';
 import { PathInput } from './components/inputs/PathInput';
-import { UploadZone } from './components/inputs/UploadZone';
 import { GraphCanvas } from './components/graph/GraphCanvas';
 import { BranchList } from './components/panels/BranchList';
 import { CommitDetails } from './components/panels/CommitDetails';
+import { ProgressBar } from './components/ui/ProgressBar';
+import { LargeRepoWarning } from './components/ui/LargeRepoWarning';
 import { useRepositoryStore } from './store/repositoryStore';
 
 function App() {
-  const { repository, error } = useRepositoryStore();
+  const { repository, error, loadMode } = useRepositoryStore();
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
+      {/* Progress Bar */}
+      <ProgressBar />
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center gap-4">
@@ -60,7 +63,18 @@ function App() {
         <div className="flex items-center justify-between text-xs text-gray-500">
           <span>
             {repository ? (
-              <>Showing {repository.commits.length} commits from <strong>{repository.name}</strong></>
+              <>
+                Showing {repository.commits.length.toLocaleString()}
+                {repository.totalCommitCount && repository.totalCommitCount > repository.commits.length && (
+                  <> of {repository.totalCommitCount.toLocaleString()}</>
+                )}
+                {' '}commits from <strong>{repository.name}</strong>
+                {loadMode !== 'full' && (
+                  <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] uppercase">
+                    {loadMode === 'simplified' ? 'Simplified' : 'Streaming'}
+                  </span>
+                )}
+              </>
             ) : (
               'Enter a repository path to get started'
             )}
@@ -68,6 +82,9 @@ function App() {
           <span>Pan: drag | Zoom: scroll | Select: click</span>
         </div>
       </footer>
+
+      {/* Large Repo Warning Modal */}
+      <LargeRepoWarning />
     </div>
   );
 }
