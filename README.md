@@ -64,7 +64,7 @@ npm run dev:frontend  # Start only frontend
 1. Add the absolute path of the folder containing the ```.git``` folder and voila! 
 
 ### 
-Additionaly you can also input the github/gitlab url in the input bar on index page. or simple add ```http://localhost:<port>/github.com/<user>/<repo>```
+Additionaly you can also input the github/gitlab url in the input bar on index page. or simply add ```localhost:<port> ``` prefix to your github/gitlab repo ```http://localhost:<port>/github.com/<user>/<repo>```
 
 ## Configuration
 
