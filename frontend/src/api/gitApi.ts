@@ -8,6 +8,20 @@ import type {
   RepositoryMetadata,
   Commit,
   PaginatedCommits,
+  DiffStats,
+  DiffStatsResponse,
+  FileDiffDetail,
+  FileDiffResponse,
+  TreeEntry,
+  TreeResponse,
+  FileContent,
+  FileContentResponse,
+  ContributorStats,
+  ContributorStatsResponse,
+  ActivityDay,
+  ActivityResponse,
+  Submodule,
+  SubmodulesResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -338,6 +352,159 @@ export async function uploadFolder(files: FileList): Promise<Repository> {
 
   if (!response.ok || !data.success) {
     throw new Error(data.error || 'Failed to upload folder');
+  }
+
+  return data.data!;
+}
+
+// Diff APIs
+
+export async function getCommitDiffStats(
+  repoPath: string,
+  commitHash: string
+): Promise<DiffStats> {
+  const response = await fetch(`${API_BASE}/commit/${commitHash}/diff-stats`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: DiffStatsResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get diff stats');
+  }
+
+  return data.data!;
+}
+
+export async function getCommitFileDiff(
+  repoPath: string,
+  commitHash: string,
+  filePath: string
+): Promise<FileDiffDetail> {
+  const params = new URLSearchParams({ filePath });
+  const response = await fetch(
+    `${API_BASE}/commit/${commitHash}/file-diff?${params}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: repoPath }),
+    }
+  );
+
+  const data: FileDiffResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get file diff');
+  }
+
+  return data.data!;
+}
+
+// File tree APIs
+
+export async function getFileTree(
+  repoPath: string,
+  commitHash: string,
+  treePath?: string
+): Promise<TreeEntry[]> {
+  const params = treePath ? new URLSearchParams({ treePath }) : '';
+  const response = await fetch(
+    `${API_BASE}/commit/${commitHash}/tree${params ? `?${params}` : ''}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: repoPath }),
+    }
+  );
+
+  const data: TreeResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get file tree');
+  }
+
+  return data.data!;
+}
+
+export async function getFileContent(
+  repoPath: string,
+  commitHash: string,
+  filePath: string
+): Promise<FileContent> {
+  const params = new URLSearchParams({ filePath });
+  const response = await fetch(
+    `${API_BASE}/commit/${commitHash}/file?${params}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: repoPath }),
+    }
+  );
+
+  const data: FileContentResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get file content');
+  }
+
+  return data.data!;
+}
+
+// Stats APIs
+
+export async function getContributorStats(
+  repoPath: string
+): Promise<ContributorStats[]> {
+  const response = await fetch(`${API_BASE}/repository/contributors`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: ContributorStatsResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get contributor stats');
+  }
+
+  return data.data!;
+}
+
+export async function getActivityHeatmap(
+  repoPath: string,
+  days: number = 365
+): Promise<ActivityDay[]> {
+  const params = new URLSearchParams({ days: days.toString() });
+  const response = await fetch(`${API_BASE}/repository/activity?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: ActivityResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get activity heatmap');
+  }
+
+  return data.data!;
+}
+
+// Submodule APIs
+
+export async function getSubmodules(repoPath: string): Promise<Submodule[]> {
+  const response = await fetch(`${API_BASE}/repository/submodules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: SubmodulesResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get submodules');
   }
 
   return data.data!;

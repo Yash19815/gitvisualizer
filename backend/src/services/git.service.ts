@@ -73,6 +73,74 @@ export interface RepositoryMetadata {
   stats: RepoStats;
 }
 
+// Diff-related interfaces
+export interface FileDiff {
+  path: string;
+  oldPath?: string;
+  status: 'added' | 'deleted' | 'modified' | 'renamed' | 'copied';
+  additions: number;
+  deletions: number;
+  binary: boolean;
+}
+
+export interface DiffStats {
+  files: FileDiff[];
+  totalAdditions: number;
+  totalDeletions: number;
+}
+
+export interface DiffHunk {
+  oldStart: number;
+  oldLines: number;
+  newStart: number;
+  newLines: number;
+  content: string;
+}
+
+export interface FileDiffDetail extends FileDiff {
+  hunks: DiffHunk[];
+}
+
+// File tree interfaces
+export interface TreeEntry {
+  name: string;
+  path: string;
+  type: 'file' | 'directory';
+  size?: number;
+}
+
+export interface FileContent {
+  path: string;
+  content: string;
+  size: number;
+  binary: boolean;
+}
+
+// Contributor stats interfaces
+export interface ContributorStats {
+  name: string;
+  email: string;
+  commitCount: number;
+  additions: number;
+  deletions: number;
+  firstCommit: string;
+  lastCommit: string;
+}
+
+export interface ActivityDay {
+  date: string; // YYYY-MM-DD
+  count: number;
+}
+
+// Submodule interfaces
+export interface Submodule {
+  name: string;
+  path: string;
+  url: string;
+  currentCommit: string;
+  initialized: boolean;
+}
+
 function parseRefs(refsString: string): RefInfo[] {
   if (!refsString || refsString.trim() === '') return [];
 
@@ -482,6 +550,531 @@ class GitService {
     } catch {
       return null;
     }
+  }
+
+  // Empty tree hash used for root commits (first commit has no parent)
+  private readonly EMPTY_TREE_HASH = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+  async getCommitDiffStats(repoPath: string, commitHash: string): Promise<DiffStats> {
+    const git = this.getGit(repoPath);
+
+    // Get parent commit hash (empty tree for root commit)
+    let parentHash = this.EMPTY_TREE_HASH;
+    try {
+      const parent = await git.raw(['rev-parse', `${commitHash}^`]);
+      parentHash = parent.trim();
+    } catch {
+      // Root commit - use empty tree
+    }
+
+    // Get numstat for additions/deletions count
+    const numstat = await git.raw([
+      'diff',
+      '--numstat',
+      '--find-renames',
+      '--find-copies',
+      parentHash,
+      commitHash,
+    ]);
+
+    // Get name-status for file status (A/D/M/R/C)
+    const nameStatus = await git.raw([
+      'diff',
+      '--name-status',
+      '--find-renames',
+      '--find-copies',
+      parentHash,
+      commitHash,
+    ]);
+
+    // Parse name-status to get file statuses
+    const statusMap = new Map<string, { status: string; oldPath?: string }>();
+    for (const line of nameStatus.trim().split('\n').filter(Boolean)) {
+      const parts = line.split('\t');
+      const status = parts[0];
+      if (status.startsWith('R') || status.startsWith('C')) {
+        // Rename or copy: R100\toldPath\tnewPath
+        statusMap.set(parts[2], { status: status[0], oldPath: parts[1] });
+      } else {
+        statusMap.set(parts[1], { status: status[0] });
+      }
+    }
+
+    // Parse numstat and combine with status
+    const files: FileDiff[] = [];
+    let totalAdditions = 0;
+    let totalDeletions = 0;
+
+    for (const line of numstat.trim().split('\n').filter(Boolean)) {
+      const parts = line.split('\t');
+      const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
+      const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
+      const binary = parts[0] === '-' && parts[1] === '-';
+
+      // Handle renamed files (path format: oldPath => newPath or just newPath)
+      let filePath = parts[2];
+      if (filePath.includes(' => ')) {
+        // Format: path/to/{old => new}/file.txt or old.txt => new.txt
+        const match = filePath.match(/^(.*)?\{(.+) => (.+)\}(.*)$/) ||
+                      filePath.match(/^(.+) => (.+)$/);
+        if (match) {
+          if (match.length === 5) {
+            // {old => new} format
+            filePath = match[1] + match[3] + match[4];
+          } else {
+            // simple old => new format
+            filePath = match[2];
+          }
+        }
+      }
+
+      const statusInfo = statusMap.get(filePath) || { status: 'M' };
+      const statusChar = statusInfo.status;
+
+      let status: FileDiff['status'] = 'modified';
+      if (statusChar === 'A') status = 'added';
+      else if (statusChar === 'D') status = 'deleted';
+      else if (statusChar === 'R') status = 'renamed';
+      else if (statusChar === 'C') status = 'copied';
+
+      files.push({
+        path: filePath,
+        oldPath: statusInfo.oldPath,
+        status,
+        additions,
+        deletions,
+        binary,
+      });
+
+      totalAdditions += additions;
+      totalDeletions += deletions;
+    }
+
+    return { files, totalAdditions, totalDeletions };
+  }
+
+  async getFileDiff(
+    repoPath: string,
+    commitHash: string,
+    filePath: string
+  ): Promise<FileDiffDetail> {
+    const git = this.getGit(repoPath);
+
+    // Get parent hash
+    let parentHash = this.EMPTY_TREE_HASH;
+    try {
+      const parent = await git.raw(['rev-parse', `${commitHash}^`]);
+      parentHash = parent.trim();
+    } catch {
+      // Root commit
+    }
+
+    // Get file status and stats
+    const stats = await this.getCommitDiffStats(repoPath, commitHash);
+    const fileStats = stats.files.find(f => f.path === filePath);
+
+    if (!fileStats) {
+      throw new Error(`File ${filePath} not found in commit ${commitHash}`);
+    }
+
+    // Get unified diff for the file
+    const diffPath = fileStats.oldPath
+      ? `${fileStats.oldPath}`
+      : filePath;
+
+    const diffOutput = await git.raw([
+      'diff',
+      '--unified=3',
+      parentHash,
+      commitHash,
+      '--',
+      diffPath,
+      ...(fileStats.oldPath ? [filePath] : []),
+    ]);
+
+    // Parse hunks from unified diff
+    const hunks: DiffHunk[] = [];
+    const hunkRegex = /@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/g;
+    const lines = diffOutput.split('\n');
+
+    let match: RegExpExecArray | null;
+    let lastIndex = 0;
+    const hunkMatches: { index: number; match: RegExpExecArray }[] = [];
+
+    while ((match = hunkRegex.exec(diffOutput)) !== null) {
+      hunkMatches.push({ index: match.index, match: { ...match } as RegExpExecArray });
+    }
+
+    for (let i = 0; i < hunkMatches.length; i++) {
+      const { match } = hunkMatches[i];
+      const oldStart = parseInt(match[1], 10);
+      const oldLines = match[2] ? parseInt(match[2], 10) : 1;
+      const newStart = parseInt(match[3], 10);
+      const newLines = match[4] ? parseInt(match[4], 10) : 1;
+
+      // Find content between this hunk header and the next (or end)
+      const startIdx = diffOutput.indexOf('\n', hunkMatches[i].index) + 1;
+      const endIdx = i + 1 < hunkMatches.length
+        ? hunkMatches[i + 1].index
+        : diffOutput.length;
+
+      const content = diffOutput.slice(startIdx, endIdx).trimEnd();
+
+      hunks.push({
+        oldStart,
+        oldLines,
+        newStart,
+        newLines,
+        content,
+      });
+    }
+
+    return {
+      ...fileStats,
+      hunks,
+    };
+  }
+
+  async getFileTree(
+    repoPath: string,
+    commitHash: string,
+    treePath: string = ''
+  ): Promise<TreeEntry[]> {
+    const git = this.getGit(repoPath);
+
+    // Use ls-tree to list directory contents
+    // -l flag includes file size
+    const args = ['ls-tree', '-l', commitHash];
+    if (treePath) {
+      args.push(treePath + '/');
+    }
+
+    const result = await git.raw(args);
+    const entries: TreeEntry[] = [];
+
+    for (const line of result.trim().split('\n').filter(Boolean)) {
+      // Format: mode type hash size\tpath
+      // Example: 100644 blob abc123 1234\tsrc/file.ts
+      // For trees (dirs): 040000 tree abc123 -\tsrc/components
+      const match = line.match(/^(\d+)\s+(\w+)\s+([a-f0-9]+)\s+(-|\d+)\t(.+)$/);
+      if (!match) continue;
+
+      const [, mode, type, hash, size, fullPath] = match;
+      const name = fullPath.split('/').pop() || fullPath;
+
+      entries.push({
+        name,
+        path: fullPath,
+        type: type === 'tree' ? 'directory' : 'file',
+        size: size === '-' ? undefined : parseInt(size, 10),
+      });
+    }
+
+    // Sort: directories first, then alphabetically
+    entries.sort((a, b) => {
+      if (a.type !== b.type) {
+        return a.type === 'directory' ? -1 : 1;
+      }
+      return a.name.localeCompare(b.name);
+    });
+
+    return entries;
+  }
+
+  async getFileContent(
+    repoPath: string,
+    commitHash: string,
+    filePath: string
+  ): Promise<FileContent> {
+    const git = this.getGit(repoPath);
+
+    // Check if file is binary
+    const isBinary = await this.isFileBinary(git, commitHash, filePath);
+
+    if (isBinary) {
+      // For binary files, just return metadata
+      const size = await this.getFileSize(git, commitHash, filePath);
+      return {
+        path: filePath,
+        content: '',
+        size,
+        binary: true,
+      };
+    }
+
+    // Get file content using git show
+    const content = await git.raw(['show', `${commitHash}:${filePath}`]);
+
+    return {
+      path: filePath,
+      content,
+      size: Buffer.byteLength(content, 'utf-8'),
+      binary: false,
+    };
+  }
+
+  private async isFileBinary(
+    git: SimpleGit,
+    commitHash: string,
+    filePath: string
+  ): Promise<boolean> {
+    try {
+      // Use git diff to check if file is binary
+      const result = await git.raw([
+        'diff',
+        '--numstat',
+        this.EMPTY_TREE_HASH,
+        commitHash,
+        '--',
+        filePath,
+      ]);
+      // Binary files show "-\t-\tfilepath"
+      return result.startsWith('-\t-');
+    } catch {
+      return false;
+    }
+  }
+
+  private async getFileSize(
+    git: SimpleGit,
+    commitHash: string,
+    filePath: string
+  ): Promise<number> {
+    try {
+      const result = await git.raw(['cat-file', '-s', `${commitHash}:${filePath}`]);
+      return parseInt(result.trim(), 10);
+    } catch {
+      return 0;
+    }
+  }
+
+  // ===== CONTRIBUTOR STATS METHODS =====
+
+  async getContributorStats(repoPath: string): Promise<ContributorStats[]> {
+    const git = this.getGit(repoPath);
+
+    // Get commit counts per author using shortlog
+    const shortlog = await git.raw(['shortlog', '-sne', '--all']);
+
+    // Parse shortlog output: "  123\tAuthor Name <email@example.com>"
+    const contributors = new Map<string, ContributorStats>();
+
+    for (const line of shortlog.trim().split('\n').filter(Boolean)) {
+      const match = line.match(/^\s*(\d+)\t(.+)\s<(.+)>$/);
+      if (match) {
+        const [, count, name, email] = match;
+        contributors.set(email, {
+          name,
+          email,
+          commitCount: parseInt(count, 10),
+          additions: 0,
+          deletions: 0,
+          firstCommit: '',
+          lastCommit: '',
+        });
+      }
+    }
+
+    // Get first and last commit dates per author
+    const dateLog = await git.raw([
+      'log',
+      '--all',
+      '--format=%ae|%aI',
+    ]);
+
+    const authorDates = new Map<string, string[]>();
+    for (const line of dateLog.trim().split('\n').filter(Boolean)) {
+      const [email, date] = line.split('|');
+      if (!authorDates.has(email)) {
+        authorDates.set(email, []);
+      }
+      authorDates.get(email)!.push(date);
+    }
+
+    // Set first and last commit dates
+    for (const [email, dates] of authorDates) {
+      if (contributors.has(email) && dates.length > 0) {
+        const contributor = contributors.get(email)!;
+        // Dates come in reverse chronological order from git log
+        contributor.lastCommit = dates[0];
+        contributor.firstCommit = dates[dates.length - 1];
+      }
+    }
+
+    // Get line stats per author (can be slow for large repos, so we sample)
+    try {
+      const statLog = await git.raw([
+        'log',
+        '--all',
+        '--shortstat',
+        '--format=%ae',
+        '-n', '1000', // Limit to recent 1000 commits for performance
+      ]);
+
+      let currentEmail = '';
+      for (const line of statLog.split('\n')) {
+        if (line.includes('@')) {
+          currentEmail = line.trim();
+        } else if (line.includes('insertion') || line.includes('deletion')) {
+          const insertMatch = line.match(/(\d+) insertion/);
+          const deleteMatch = line.match(/(\d+) deletion/);
+
+          if (contributors.has(currentEmail)) {
+            const contributor = contributors.get(currentEmail)!;
+            if (insertMatch) {
+              contributor.additions += parseInt(insertMatch[1], 10);
+            }
+            if (deleteMatch) {
+              contributor.deletions += parseInt(deleteMatch[1], 10);
+            }
+          }
+        }
+      }
+    } catch {
+      // Line stats failed, continue without them
+    }
+
+    // Sort by commit count descending
+    return Array.from(contributors.values()).sort(
+      (a, b) => b.commitCount - a.commitCount
+    );
+  }
+
+  async getActivityHeatmap(
+    repoPath: string,
+    days: number = 365
+  ): Promise<ActivityDay[]> {
+    const git = this.getGit(repoPath);
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    // Get all commit dates
+    const log = await git.raw([
+      'log',
+      '--all',
+      '--format=%aI',
+      `--since=${startDate.toISOString()}`,
+    ]);
+
+    // Count commits per day
+    const dayCounts = new Map<string, number>();
+
+    for (const line of log.trim().split('\n').filter(Boolean)) {
+      const date = line.split('T')[0]; // Extract YYYY-MM-DD
+      dayCounts.set(date, (dayCounts.get(date) || 0) + 1);
+    }
+
+    // Generate array for all days in range
+    const result: ActivityDay[] = [];
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      result.push({
+        date: dateStr,
+        count: dayCounts.get(dateStr) || 0,
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return result;
+  }
+
+  // ===== SUBMODULE METHODS =====
+
+  async hasSubmodules(repoPath: string): Promise<boolean> {
+    try {
+      await fs.access(path.join(repoPath, '.gitmodules'));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getSubmodules(repoPath: string): Promise<Submodule[]> {
+    const git = this.getGit(repoPath);
+
+    // Check if .gitmodules exists
+    const hasModules = await this.hasSubmodules(repoPath);
+    if (!hasModules) {
+      return [];
+    }
+
+    // Get submodule config
+    let configOutput: string;
+    try {
+      configOutput = await git.raw([
+        'config',
+        '--file',
+        '.gitmodules',
+        '--list',
+      ]);
+    } catch {
+      return [];
+    }
+
+    // Parse config output
+    // Format: submodule.<name>.path=<path>
+    //         submodule.<name>.url=<url>
+    const submoduleMap = new Map<
+      string,
+      { path?: string; url?: string; branch?: string }
+    >();
+
+    for (const line of configOutput.trim().split('\n').filter(Boolean)) {
+      const match = line.match(/^submodule\.([^.]+)\.(\w+)=(.+)$/);
+      if (match) {
+        const [, name, key, value] = match;
+        if (!submoduleMap.has(name)) {
+          submoduleMap.set(name, {});
+        }
+        const sub = submoduleMap.get(name)!;
+        if (key === 'path') sub.path = value;
+        else if (key === 'url') sub.url = value;
+        else if (key === 'branch') sub.branch = value;
+      }
+    }
+
+    // Get submodule status for current commits
+    let statusOutput = '';
+    try {
+      statusOutput = await git.raw(['submodule', 'status']);
+    } catch {
+      // Submodule status failed
+    }
+
+    // Parse status: " <commit> <path> (<desc>)" or "-<commit> <path>" (not initialized)
+    const statusMap = new Map<string, { commit: string; initialized: boolean }>();
+    for (const line of statusOutput.trim().split('\n').filter(Boolean)) {
+      const initialized = !line.startsWith('-');
+      const match = line.match(/^[-+ ]?([a-f0-9]+)\s+(\S+)/);
+      if (match) {
+        statusMap.set(match[2], {
+          commit: match[1],
+          initialized,
+        });
+      }
+    }
+
+    // Build submodule list
+    const submodules: Submodule[] = [];
+    for (const [name, config] of submoduleMap) {
+      if (config.path && config.url) {
+        const status = statusMap.get(config.path);
+        submodules.push({
+          name,
+          path: config.path,
+          url: config.url,
+          currentCommit: status?.commit || '',
+          initialized: status?.initialized ?? false,
+        });
+      }
+    }
+
+    return submodules.sort((a, b) => a.path.localeCompare(b.path));
   }
 }
 

@@ -1,8 +1,9 @@
 import { useRepositoryStore } from '../../store/repositoryStore';
 import { getBranchColor } from '../../utils/branchColors';
+import { SubmoduleList } from './SubmoduleList';
 
 export function BranchList() {
-  const { repository, searchQuery, setSearchQuery, loadMoreCommits, isLoading, loadMode } =
+  const { repository, searchQuery, setSearchQuery, loadMoreCommits, isLoading, loadMode, submodules } =
     useRepositoryStore();
 
   if (!repository) {
@@ -151,7 +152,7 @@ export function BranchList() {
 
       {/* Tags */}
       {repository.tags.length > 0 && (
-        <div>
+        <div className="mb-4">
           <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
             Tags ({repository.tags.length})
           </h4>
@@ -174,6 +175,11 @@ export function BranchList() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Submodules */}
+      {submodules && submodules.length > 0 && (
+        <SubmoduleList submodules={submodules} />
       )}
     </div>
   );

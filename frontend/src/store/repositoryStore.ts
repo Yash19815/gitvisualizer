@@ -1,5 +1,17 @@
 import { create } from 'zustand';
-import type { Repository, Commit, RepoStats, RepositoryMetadata } from '../types';
+import type {
+  Repository,
+  Commit,
+  RepoStats,
+  RepositoryMetadata,
+  DiffStats,
+  FileDiffDetail,
+  TreeEntry,
+  FileContent,
+  ContributorStats,
+  ActivityDay,
+  Submodule,
+} from '../types';
 import {
   loadRepository,
   uploadRepository,
@@ -8,9 +20,17 @@ import {
   getRepoStats,
   streamRepository,
   getCommitsPaginated,
+  getCommitDiffStats,
+  getCommitFileDiff,
+  getFileTree,
+  getFileContent,
+  getContributorStats,
+  getActivityHeatmap,
+  getSubmodules,
 } from '../api/gitApi';
 
 export type LoadMode = 'full' | 'paginated' | 'simplified';
+export type DetailTab = 'details' | 'changes' | 'files';
 
 interface RepositoryState {
   repository: Repository | null;
@@ -28,6 +48,31 @@ interface RepositoryState {
   loadMode: LoadMode;
   abortStream: (() => void) | null;
 
+  // Diff viewer state
+  activeTab: DetailTab;
+  diffStats: DiffStats | null;
+  selectedFileDiff: FileDiffDetail | null;
+  isLoadingDiff: boolean;
+  diffError: string | null;
+
+  // File tree state
+  fileTree: TreeEntry[];
+  expandedPaths: Set<string>;
+  selectedFile: FileContent | null;
+  isLoadingTree: boolean;
+  isLoadingFile: boolean;
+  fileError: string | null;
+
+  // Stats state
+  contributorStats: ContributorStats[] | null;
+  activityHeatmap: ActivityDay[] | null;
+  isLoadingStats: boolean;
+  statsError: string | null;
+  showStatsPanel: boolean;
+
+  // Submodule state
+  submodules: Submodule[] | null;
+
   // Actions
   loadRepo: (path: string) => Promise<void>;
   loadRepoWithMode: (path: string, mode: LoadMode) => Promise<void>;
@@ -40,6 +85,22 @@ interface RepositoryState {
   dismissLargeRepoWarning: () => void;
   confirmLoadLargeRepo: (mode: LoadMode) => void;
   reset: () => void;
+
+  // Diff and file tree actions
+  setActiveTab: (tab: DetailTab) => void;
+  fetchDiffStats: () => Promise<void>;
+  fetchFileDiff: (filePath: string) => Promise<void>;
+  clearFileDiff: () => void;
+  fetchFileTreeRoot: () => Promise<void>;
+  fetchFileTreePath: (treePath: string) => Promise<void>;
+  toggleExpandPath: (path: string) => void;
+  fetchFileContent: (filePath: string) => Promise<void>;
+  clearFileContent: () => void;
+
+  // Stats and submodule actions
+  fetchStats: () => Promise<void>;
+  toggleStatsPanel: () => void;
+  fetchSubmodules: () => Promise<void>;
 }
 
 export const useRepositoryStore = create<RepositoryState>((set, get) => ({
@@ -55,6 +116,31 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   pendingPath: null,
   loadMode: 'full',
   abortStream: null,
+
+  // Diff viewer state
+  activeTab: 'details',
+  diffStats: null,
+  selectedFileDiff: null,
+  isLoadingDiff: false,
+  diffError: null,
+
+  // File tree state
+  fileTree: [],
+  expandedPaths: new Set<string>(),
+  selectedFile: null,
+  isLoadingTree: false,
+  isLoadingFile: false,
+  fileError: null,
+
+  // Stats state
+  contributorStats: null,
+  activityHeatmap: null,
+  isLoadingStats: false,
+  statsError: null,
+  showStatsPanel: false,
+
+  // Submodule state
+  submodules: null,
 
   loadRepo: async (path: string) => {
     // Abort any existing stream
@@ -362,7 +448,19 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
   },
 
-  setSelectedCommit: (commit) => set({ selectedCommit: commit }),
+  setSelectedCommit: (commit) =>
+    set({
+      selectedCommit: commit,
+      // Clear diff and file state when changing commits
+      diffStats: null,
+      selectedFileDiff: null,
+      diffError: null,
+      fileTree: [],
+      expandedPaths: new Set<string>(),
+      selectedFile: null,
+      fileError: null,
+      activeTab: 'details',
+    }),
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
@@ -394,6 +492,172 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       showLargeRepoWarning: false,
       pendingPath: null,
       abortStream: null,
+      // Reset diff and file tree state
+      activeTab: 'details',
+      diffStats: null,
+      selectedFileDiff: null,
+      isLoadingDiff: false,
+      diffError: null,
+      fileTree: [],
+      expandedPaths: new Set<string>(),
+      selectedFile: null,
+      isLoadingTree: false,
+      isLoadingFile: false,
+      fileError: null,
+      // Reset stats and submodules state
+      contributorStats: null,
+      activityHeatmap: null,
+      isLoadingStats: false,
+      statsError: null,
+      showStatsPanel: false,
+      submodules: null,
     });
+  },
+
+  // Diff and file tree actions
+  setActiveTab: (tab) => set({ activeTab: tab }),
+
+  fetchDiffStats: async () => {
+    const { repository, selectedCommit } = get();
+    if (!repository || !selectedCommit) return;
+
+    set({ isLoadingDiff: true, diffError: null, diffStats: null, selectedFileDiff: null });
+
+    try {
+      const stats = await getCommitDiffStats(repository.path, selectedCommit.hash);
+      set({ diffStats: stats, isLoadingDiff: false });
+    } catch (error) {
+      set({ diffError: (error as Error).message, isLoadingDiff: false });
+    }
+  },
+
+  fetchFileDiff: async (filePath: string) => {
+    const { repository, selectedCommit } = get();
+    if (!repository || !selectedCommit) return;
+
+    set({ isLoadingDiff: true, diffError: null });
+
+    try {
+      const diff = await getCommitFileDiff(repository.path, selectedCommit.hash, filePath);
+      set({ selectedFileDiff: diff, isLoadingDiff: false });
+    } catch (error) {
+      set({ diffError: (error as Error).message, isLoadingDiff: false });
+    }
+  },
+
+  clearFileDiff: () => set({ selectedFileDiff: null }),
+
+  fetchFileTreeRoot: async () => {
+    const { repository, selectedCommit } = get();
+    if (!repository || !selectedCommit) return;
+
+    set({ isLoadingTree: true, fileError: null, fileTree: [], expandedPaths: new Set() });
+
+    try {
+      const tree = await getFileTree(repository.path, selectedCommit.hash);
+      set({ fileTree: tree, isLoadingTree: false });
+    } catch (error) {
+      set({ fileError: (error as Error).message, isLoadingTree: false });
+    }
+  },
+
+  fetchFileTreePath: async (treePath: string) => {
+    const { repository, selectedCommit, fileTree } = get();
+    if (!repository || !selectedCommit) return;
+
+    try {
+      const children = await getFileTree(repository.path, selectedCommit.hash, treePath);
+      // Merge children into the tree (they'll be rendered based on expandedPaths)
+      // Store children with their parent path prefix for lookup
+      const newEntries = children.map(entry => ({
+        ...entry,
+        path: entry.path, // path already includes full path from backend
+      }));
+
+      // Add new entries that don't already exist
+      const existingPaths = new Set(fileTree.map(e => e.path));
+      const uniqueNewEntries = newEntries.filter(e => !existingPaths.has(e.path));
+
+      set({ fileTree: [...fileTree, ...uniqueNewEntries] });
+    } catch (error) {
+      set({ fileError: (error as Error).message });
+    }
+  },
+
+  toggleExpandPath: (path: string) => {
+    const { expandedPaths } = get();
+    const newExpanded = new Set(expandedPaths);
+
+    if (newExpanded.has(path)) {
+      newExpanded.delete(path);
+    } else {
+      newExpanded.add(path);
+      // Fetch children when expanding
+      get().fetchFileTreePath(path);
+    }
+
+    set({ expandedPaths: newExpanded });
+  },
+
+  fetchFileContent: async (filePath: string) => {
+    const { repository, selectedCommit } = get();
+    if (!repository || !selectedCommit) return;
+
+    set({ isLoadingFile: true, fileError: null, selectedFile: null });
+
+    try {
+      const content = await getFileContent(repository.path, selectedCommit.hash, filePath);
+      set({ selectedFile: content, isLoadingFile: false });
+    } catch (error) {
+      set({ fileError: (error as Error).message, isLoadingFile: false });
+    }
+  },
+
+  clearFileContent: () => set({ selectedFile: null }),
+
+  // Stats and submodule actions
+  fetchStats: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    set({ isLoadingStats: true, statsError: null });
+
+    try {
+      const [contributors, activity] = await Promise.all([
+        getContributorStats(repository.path),
+        getActivityHeatmap(repository.path),
+      ]);
+      set({
+        contributorStats: contributors,
+        activityHeatmap: activity,
+        isLoadingStats: false,
+      });
+    } catch (error) {
+      set({ statsError: (error as Error).message, isLoadingStats: false });
+    }
+  },
+
+  toggleStatsPanel: () => {
+    const { showStatsPanel, repository, contributorStats } = get();
+    const newShow = !showStatsPanel;
+    set({ showStatsPanel: newShow });
+
+    // Fetch stats when opening panel if not already loaded
+    if (newShow && repository && !contributorStats) {
+      get().fetchStats();
+    }
+  },
+
+  fetchSubmodules: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    try {
+      const submodules = await getSubmodules(repository.path);
+      set({ submodules });
+    } catch {
+      // Silently fail - submodules are optional
+      set({ submodules: [] });
+    }
   },
 }));

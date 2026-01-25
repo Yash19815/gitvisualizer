@@ -142,6 +142,126 @@ repositoryRoutes.get('/commit/:hash', validatePath, async (req: Request, res: Re
   }
 });
 
+// Get diff stats for a commit (changed files with additions/deletions)
+repositoryRoutes.post('/commit/:hash/diff-stats', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const { hash } = req.params;
+
+    const stats = await gitService.getCommitDiffStats(path, hash);
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get detailed diff for a specific file in a commit
+repositoryRoutes.post('/commit/:hash/file-diff', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const { hash } = req.params;
+    const filePath = req.query.filePath as string;
+
+    if (!filePath) {
+      res.status(400).json({ success: false, error: 'filePath query parameter is required' });
+      return;
+    }
+
+    const diff = await gitService.getFileDiff(path, hash, filePath);
+    res.json({ success: true, data: diff });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get file tree at a specific commit
+repositoryRoutes.post('/commit/:hash/tree', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const { hash } = req.params;
+    const treePath = (req.query.treePath as string) || '';
+
+    const tree = await gitService.getFileTree(path, hash, treePath);
+    res.json({ success: true, data: tree });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get file content at a specific commit
+repositoryRoutes.post('/commit/:hash/file', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const { hash } = req.params;
+    const filePath = req.query.filePath as string;
+
+    if (!filePath) {
+      res.status(400).json({ success: false, error: 'filePath query parameter is required' });
+      return;
+    }
+
+    const content = await gitService.getFileContent(path, hash, filePath);
+    res.json({ success: true, data: content });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get contributor statistics
+repositoryRoutes.post('/repository/contributors', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const contributors = await gitService.getContributorStats(path);
+    res.json({ success: true, data: contributors });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get activity heatmap data
+repositoryRoutes.post('/repository/activity', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const days = parseInt(req.query.days as string) || 365;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const activity = await gitService.getActivityHeatmap(path, days);
+    res.json({ success: true, data: activity });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get submodules list
+repositoryRoutes.post('/repository/submodules', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const submodules = await gitService.getSubmodules(path);
+    res.json({ success: true, data: submodules });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
 repositoryRoutes.post('/repository/clone', async (req: Request, res: Response) => {
   try {
     const { url, shallow = true } = req.body;
