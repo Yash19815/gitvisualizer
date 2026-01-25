@@ -224,3 +224,69 @@ export interface BranchComparisonResponse {
   data?: BranchComparison;
   error?: string;
 }
+
+// GitHub API types
+export interface PullRequest {
+  number: number;
+  title: string;
+  state: 'open' | 'closed' | 'merged';
+  url: string;
+  author: string;
+  createdAt: string;
+  mergedAt?: string;
+}
+
+export interface Issue {
+  number: number;
+  title: string;
+  state: 'open' | 'closed';
+  url: string;
+  labels: string[];
+}
+
+export interface CommitGitHubInfo {
+  pullRequests: PullRequest[];
+  linkedIssues: Issue[];
+}
+
+export interface GitHubRepoInfo {
+  owner: string;
+  repo: string;
+  isGitHub: boolean;
+}
+
+export interface GitHubInfoResponse {
+  success: boolean;
+  data?: CommitGitHubInfo;
+  error?: string;
+  warning?: string;
+}
+
+export interface GitHubRepoInfoResponse {
+  success: boolean;
+  data?: GitHubRepoInfo;
+  error?: string;
+}
+
+export interface GitHubRateLimitResponse {
+  success: boolean;
+  data?: {
+    remaining: number;
+    limit: number;
+    resetAt: string;
+  };
+  error?: string;
+}
+
+// Submodule graph types
+export interface SubmoduleNodeData {
+  submodule: Submodule;
+  color: string;
+  isCompact: boolean;
+}
+
+// Repository navigation stack for submodule traversal
+export interface RepositoryStackItem {
+  path: string;
+  name: string;
+}

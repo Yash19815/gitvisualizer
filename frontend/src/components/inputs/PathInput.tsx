@@ -1,11 +1,14 @@
 import { useState, type FormEvent, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useRepositoryStore } from '../../store/repositoryStore';
 import { isGitUrl } from '../../api/gitApi';
+import { repoUrlToPath } from '../../hooks/useRepoUrl';
 
 export function PathInput() {
   const [input, setInput] = useState('');
   const [fullClone, setFullClone] = useState(false);
   const { loadRepo, cloneRepo, isLoading, error, repository } = useRepositoryStore();
+  const navigate = useNavigate();
 
   const inputType = useMemo(() => {
     const trimmed = input.trim();
@@ -19,6 +22,10 @@ export function PathInput() {
     if (!trimmed) return;
 
     if (inputType === 'url') {
+      // Update URL to reflect the repo being loaded
+      const urlPath = repoUrlToPath(trimmed);
+      navigate(urlPath, { replace: true });
+
       await cloneRepo(trimmed, { shallow: !fullClone });
     } else {
       await loadRepo(trimmed);

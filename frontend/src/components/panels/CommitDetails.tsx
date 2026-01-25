@@ -2,6 +2,7 @@ import { useRepositoryStore } from '../../store/repositoryStore';
 import { Tabs } from '../ui/Tabs';
 import { DiffViewer } from '../diff/DiffViewer';
 import { FileTreePanel } from '../tree/FileTreePanel';
+import { GitHubInfo } from './GitHubInfo';
 
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleString('en-US', {
@@ -129,6 +130,7 @@ export function CommitDetails() {
     { id: 'details', label: 'Details' },
     { id: 'changes', label: 'Changes', badge: diffStats?.files.length },
     { id: 'files', label: 'Files' },
+    { id: 'github', label: 'GitHub' },
   ];
 
   return (
@@ -160,6 +162,7 @@ export function CommitDetails() {
         {activeTab === 'details' && <CommitDetailsContent />}
         {activeTab === 'changes' && <DiffViewer />}
         {activeTab === 'files' && <FileTreePanel />}
+        {activeTab === 'github' && <GitHubInfo />}
       </div>
     </div>
   );

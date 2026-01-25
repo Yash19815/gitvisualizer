@@ -3,6 +3,7 @@ import cors from 'cors';
 import compression from 'compression';
 import { repositoryRoutes } from './routes/repository.routes.js';
 import { uploadRoutes } from './routes/upload.routes.js';
+import { githubRoutes } from './routes/github.routes.js';
 
 export const app = express();
 
@@ -16,6 +17,7 @@ app.get('/api/health', (_req, res) => {
 
 app.use('/api', repositoryRoutes);
 app.use('/api', uploadRoutes);
+app.use('/api', githubRoutes);
 
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Error:', err.message);

@@ -265,6 +265,34 @@ repositoryRoutes.post('/repository/submodules', validatePath, async (req: Reques
   }
 });
 
+// Load a submodule as a separate repository
+repositoryRoutes.post('/repository/submodules/load', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const { submodulePath } = req.body;
+
+    if (!submodulePath || typeof submodulePath !== 'string') {
+      res.status(400).json({ success: false, error: 'submodulePath is required' });
+      return;
+    }
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    // Get the full path to the submodule
+    const submoduleFullPath = await gitService.loadSubmoduleRepository(path, submodulePath);
+
+    // Load the submodule as a repository
+    const repository = await gitService.getRepository(submoduleFullPath);
+    res.json({ success: true, data: repository });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
 // Compare two branches
 repositoryRoutes.post('/repository/branch-compare', validatePath, async (req: Request, res: Response) => {
   try {

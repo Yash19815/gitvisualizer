@@ -526,6 +526,25 @@ export async function getSubmodules(repoPath: string): Promise<Submodule[]> {
   return data.data!;
 }
 
+export async function loadSubmoduleRepository(
+  repoPath: string,
+  submodulePath: string
+): Promise<Repository> {
+  const response = await fetch(`${API_BASE}/repository/submodules/load`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath, submodulePath }),
+  });
+
+  const data: LoadRepositoryResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to load submodule');
+  }
+
+  return data.data!;
+}
+
 // Branch comparison API
 
 export async function compareBranches(

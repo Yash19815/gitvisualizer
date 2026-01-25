@@ -1026,6 +1026,21 @@ class GitService {
     return result;
   }
 
+  // ===== REMOTE METHODS =====
+
+  async getRemoteUrls(repoPath: string): Promise<{ name: string; url: string }[]> {
+    const git = this.getGit(repoPath);
+    try {
+      const remotes = await git.getRemotes(true);
+      return remotes.map(r => ({
+        name: r.name,
+        url: r.refs.fetch || r.refs.push || '',
+      }));
+    } catch {
+      return [];
+    }
+  }
+
   // ===== SUBMODULE METHODS =====
 
   async hasSubmodules(repoPath: string): Promise<boolean> {
@@ -1118,6 +1133,39 @@ class GitService {
     }
 
     return submodules.sort((a, b) => a.path.localeCompare(b.path));
+  }
+
+  /**
+   * Load a submodule as a separate repository
+   * Returns the full path to the submodule if valid
+   */
+  async loadSubmoduleRepository(
+    repoPath: string,
+    submodulePath: string
+  ): Promise<string> {
+    // Get submodule info
+    const submodules = await this.getSubmodules(repoPath);
+    const submodule = submodules.find(s => s.path === submodulePath);
+
+    if (!submodule) {
+      throw new Error(`Submodule not found: ${submodulePath}`);
+    }
+
+    if (!submodule.initialized) {
+      throw new Error(
+        `Submodule "${submodulePath}" is not initialized. ` +
+        `Run "git submodule update --init ${submodulePath}" to initialize it.`
+      );
+    }
+
+    const fullPath = path.join(repoPath, submodulePath);
+    const isValid = await this.validateRepository(fullPath);
+
+    if (!isValid) {
+      throw new Error(`Submodule at "${submodulePath}" is not a valid git repository.`);
+    }
+
+    return fullPath;
   }
 
   // ===== BRANCH COMPARISON METHODS =====

@@ -3,14 +3,20 @@ import { PathInput } from './components/inputs/PathInput';
 import { GraphCanvas } from './components/graph/GraphCanvas';
 import { BranchList } from './components/panels/BranchList';
 import { CommitDetails } from './components/panels/CommitDetails';
+import { SubmoduleDetails } from './components/panels/SubmoduleDetails';
 import { ProgressBar } from './components/ui/ProgressBar';
 import { LargeRepoWarning } from './components/ui/LargeRepoWarning';
 import { StatsPanel } from './components/stats/StatsPanel';
 import { BranchComparePanel } from './components/compare/BranchComparePanel';
+import { RepositoryBreadcrumb } from './components/navigation/RepositoryBreadcrumb';
 import { useRepositoryStore } from './store/repositoryStore';
+import { useRepoUrl } from './hooks/useRepoUrl';
 
 function App() {
-  const { repository, error, loadMode, toggleStatsPanel, toggleBranchComparePanel } = useRepositoryStore();
+  const { repository, error, loadMode, toggleStatsPanel, toggleBranchComparePanel, selectedSubmodule } = useRepositoryStore();
+
+  // Enable URL-based repository loading (e.g., /github.com/user/repo)
+  useRepoUrl();
 
   return (
     <div className="h-screen flex flex-col bg-gray-100">
@@ -58,6 +64,9 @@ function App() {
         )}
       </header>
 
+      {/* Submodule Breadcrumb */}
+      <RepositoryBreadcrumb />
+
       {/* Main Content */}
       <main className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - Branch List */}
@@ -74,11 +83,15 @@ function App() {
           </ReactFlowProvider>
         </div>
 
-        {/* Right Sidebar - Commit Details */}
+        {/* Right Sidebar - Commit or Submodule Details */}
         {repository && (
-          <aside className="w-80 bg-white border-l border-gray-200 flex-shrink-0">
-            <CommitDetails />
-          </aside>
+          selectedSubmodule ? (
+            <SubmoduleDetails />
+          ) : (
+            <aside className="w-80 bg-white border-l border-gray-200 flex-shrink-0">
+              <CommitDetails />
+            </aside>
+          )
         )}
       </main>
 

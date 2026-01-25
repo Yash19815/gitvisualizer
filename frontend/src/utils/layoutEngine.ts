@@ -1,6 +1,6 @@
 import dagre from '@dagrejs/dagre';
 import type { Node, Edge } from '@xyflow/react';
-import type { Commit } from '../types';
+import type { Commit, Submodule } from '../types';
 import { assignBranchColors, assignAuthorColors } from './branchColors';
 
 export interface CommitNodeData extends Record<string, unknown> {
@@ -10,7 +10,16 @@ export interface CommitNodeData extends Record<string, unknown> {
   isHighlighted: boolean;
 }
 
+export interface SubmoduleNodeData extends Record<string, unknown> {
+  submodule: Submodule;
+  color: string;
+  isCompact: boolean;
+  isSelected: boolean;
+  onNavigate?: (submodulePath: string) => void;
+}
+
 export type CommitNode = Node<CommitNodeData, 'commit'>;
+export type SubmoduleGraphNode = Node<SubmoduleNodeData, 'submodule'>;
 export type CommitEdge = Edge<{ isMerge: boolean; color: string }>;
 
 // Node dimensions for different modes
@@ -122,4 +131,65 @@ export function layoutCommitGraph(
   });
 
   return { nodes, edges };
+}
+
+// Submodule node dimensions
+const SUBMODULE_WIDTH_NORMAL = 200;
+const SUBMODULE_WIDTH_COMPACT = 80;
+
+export interface SubmoduleLayoutOptions {
+  isCompact: boolean;
+  selectedSubmodulePath?: string;
+  onNavigate?: (submodulePath: string) => void;
+}
+
+/**
+ * Layout submodule nodes in a horizontal row below the commit graph
+ */
+export function layoutSubmoduleNodes(
+  submodules: Submodule[],
+  commitNodes: CommitNode[],
+  options: SubmoduleLayoutOptions
+): SubmoduleGraphNode[] {
+  if (submodules.length === 0) return [];
+
+  const { isCompact, selectedSubmodulePath, onNavigate } = options;
+
+  // Select node dimensions based on compact mode
+  const nodeWidth = isCompact ? SUBMODULE_WIDTH_COMPACT : SUBMODULE_WIDTH_NORMAL;
+  const spacing = isCompact ? 20 : 30;
+
+  // Find the bottom of the commit graph
+  let maxY = 0;
+  let minX = Infinity;
+  let maxX = -Infinity;
+
+  for (const node of commitNodes) {
+    const nodeBottom = node.position.y + (isCompact ? 60 : 100);
+    if (nodeBottom > maxY) maxY = nodeBottom;
+    if (node.position.x < minX) minX = node.position.x;
+    if (node.position.x > maxX) maxX = node.position.x + (isCompact ? 200 : 280);
+  }
+
+  // Position submodule nodes below the graph, centered horizontally
+  const totalWidth = submodules.length * nodeWidth + (submodules.length - 1) * spacing;
+  const graphWidth = maxX - minX;
+  const startX = minX + (graphWidth - totalWidth) / 2;
+  const startY = maxY + 60; // Gap below commits
+
+  return submodules.map((submodule, index) => ({
+    id: `submodule-${submodule.path}`,
+    type: 'submodule' as const,
+    position: {
+      x: startX + index * (nodeWidth + spacing),
+      y: startY,
+    },
+    data: {
+      submodule,
+      color: '#14b8a6', // teal-500
+      isCompact,
+      isSelected: selectedSubmodulePath === submodule.path,
+      onNavigate,
+    },
+  }));
 }

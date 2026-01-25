@@ -14,12 +14,16 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { CommitNode } from './CommitNode';
+import { SubmoduleNode } from './SubmoduleNode';
 import { GraphToolbar } from './GraphToolbar';
 import { UploadZone } from '../inputs/UploadZone';
 import { useRepositoryStore } from '../../store/repositoryStore';
-import { layoutCommitGraph } from '../../utils/layoutEngine';
+import { layoutCommitGraph, layoutSubmoduleNodes } from '../../utils/layoutEngine';
 
-const nodeTypes = { commit: CommitNode } as const;
+const nodeTypes = {
+  commit: CommitNode,
+  submodule: SubmoduleNode,
+} as const;
 
 export function GraphCanvas() {
   const {
@@ -29,6 +33,10 @@ export function GraphCanvas() {
     searchQuery,
     graphSettings,
     highlightedCommits,
+    submodules,
+    selectedSubmodule,
+    setSelectedSubmodule,
+    navigateToSubmodule,
   } = useRepositoryStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -64,9 +72,9 @@ export function GraphCanvas() {
 
   // Memoize layout calculation - only recalculate when commits or layout-affecting settings change
   // CRITICAL: Do NOT include selectedCommit or highlightedCommits here to avoid expensive re-layouts
-  const { layoutedNodes, layoutedEdges } = useMemo(() => {
+  const { layoutedNodes, layoutedEdges, submoduleNodes } = useMemo(() => {
     if (filteredCommits.length === 0) {
-      return { layoutedNodes: [], layoutedEdges: [] };
+      return { layoutedNodes: [], layoutedEdges: [], submoduleNodes: [] };
     }
 
     const { nodes: layoutedNodes, edges: layoutedEdges } = layoutCommitGraph(
@@ -79,14 +87,23 @@ export function GraphCanvas() {
       }
     );
 
-    return { layoutedNodes, layoutedEdges };
-  }, [filteredCommits, graphSettings.compactMode, graphSettings.colorByAuthor]);
+    // Layout submodule nodes below the commit graph
+    const submoduleNodes = submodules && submodules.length > 0
+      ? layoutSubmoduleNodes(submodules, layoutedNodes, {
+          isCompact: graphSettings.compactMode,
+          selectedSubmodulePath: selectedSubmodule?.path,
+          onNavigate: navigateToSubmodule,
+        })
+      : [];
+
+    return { layoutedNodes, layoutedEdges, submoduleNodes };
+  }, [filteredCommits, graphSettings.compactMode, graphSettings.colorByAuthor, submodules, selectedSubmodule?.path, navigateToSubmodule]);
 
   // Apply selection and highlighting WITHOUT re-running layout
   useEffect(() => {
-    if (layoutedNodes.length > 0) {
-      // Update nodes with selection and highlighting (O(n) but no layout recalc)
-      const nodesWithState = layoutedNodes.map(node => ({
+    if (layoutedNodes.length > 0 || submoduleNodes.length > 0) {
+      // Update commit nodes with selection and highlighting (O(n) but no layout recalc)
+      const commitNodesWithState = layoutedNodes.map(node => ({
         ...node,
         selected: selectedCommit?.hash === node.id,
         data: {
@@ -95,7 +112,10 @@ export function GraphCanvas() {
         },
       }));
 
-      setNodes(nodesWithState as Node[]);
+      // Combine commit nodes with submodule nodes
+      const allNodes = [...commitNodesWithState, ...submoduleNodes];
+
+      setNodes(allNodes as Node[]);
       setEdges(layoutedEdges as Edge[]);
 
       // Fit view only when commits change, not on selection
@@ -108,7 +128,7 @@ export function GraphCanvas() {
       setNodes([]);
       setEdges([]);
     }
-  }, [layoutedNodes, layoutedEdges, selectedCommit, highlightedCommits, filteredCommits, setNodes, setEdges, fitView]);
+  }, [layoutedNodes, layoutedEdges, submoduleNodes, selectedCommit, highlightedCommits, filteredCommits, setNodes, setEdges, fitView]);
 
   // Zoom to selected commit when it changes
   useEffect(() => {
@@ -135,11 +155,29 @@ export function GraphCanvas() {
 
   // Handle node click
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    // Check if it's a submodule node
+    if (node.type === 'submodule') {
+      const submodule = submodules?.find(s => s.path === node.id);
+      if (submodule) {
+        // Toggle selection or navigate if already selected
+        if (selectedSubmodule?.path === submodule.path) {
+          // Double-click behavior: navigate into the submodule
+          if (submodule.initialized) {
+            navigateToSubmodule(submodule.path);
+          }
+        } else {
+          setSelectedSubmodule(submodule);
+        }
+      }
+      return;
+    }
+
+    // Handle commit node click
     const commit = repository?.commits.find(c => c.hash === node.id);
     if (commit) {
       setSelectedCommit(selectedCommit?.hash === commit.hash ? null : commit);
     }
-  }, [repository?.commits, selectedCommit, setSelectedCommit]);
+  }, [repository?.commits, selectedCommit, setSelectedCommit, submodules, selectedSubmodule, setSelectedSubmodule, navigateToSubmodule]);
 
   if (!repository) {
     return (

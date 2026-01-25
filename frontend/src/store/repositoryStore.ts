@@ -13,6 +13,9 @@ import type {
   Submodule,
   DateRange,
   BranchComparison,
+  GitHubRepoInfo,
+  CommitGitHubInfo,
+  RepositoryStackItem,
 } from '../types';
 import {
   loadRepository,
@@ -30,10 +33,16 @@ import {
   getActivityHeatmap,
   getSubmodules,
   compareBranches,
+  loadSubmoduleRepository,
 } from '../api/gitApi';
+import {
+  setGitHubToken as setGitHubTokenApi,
+  getGitHubRepoInfo,
+  getCommitGitHubInfo,
+} from '../api/githubApi';
 
 export type LoadMode = 'full' | 'paginated' | 'simplified';
-export type DetailTab = 'details' | 'changes' | 'files';
+export type DetailTab = 'details' | 'changes' | 'files' | 'github';
 
 // Pre-computed adjacency map for O(1) parent/child lookups
 interface AdjacencyMap {
@@ -100,6 +109,17 @@ interface RepositoryState {
 
   // Submodule state
   submodules: Submodule[] | null;
+  selectedSubmodule: Submodule | null;
+  repositoryStack: RepositoryStackItem[]; // For breadcrumb navigation
+  isLoadingSubmodule: boolean;
+  submoduleError: string | null;
+
+  // GitHub integration state
+  githubRepoInfo: GitHubRepoInfo | null;
+  githubToken: string | null;
+  commitGitHubInfo: Map<string, CommitGitHubInfo>;
+  isLoadingGitHubInfo: boolean;
+  githubError: string | null;
 
   // Date filter state
   dateFilter: DateRange | null;
@@ -168,6 +188,17 @@ interface RepositoryState {
   toggleCompactMode: () => void;
   toggleHideMergeCommits: () => void;
   toggleColorByAuthor: () => void;
+
+  // GitHub integration actions
+  setGitHubToken: (token: string | null) => Promise<void>;
+  fetchGitHubRepoInfo: () => Promise<void>;
+  fetchCommitGitHubInfo: (commitHash: string) => Promise<void>;
+
+  // Submodule navigation actions
+  setSelectedSubmodule: (submodule: Submodule | null) => void;
+  navigateToSubmodule: (submodulePath: string) => Promise<void>;
+  navigateBack: () => Promise<void>;
+  navigateToRoot: () => void;
 }
 
 export const useRepositoryStore = create<RepositoryState>((set, get) => ({
@@ -209,6 +240,17 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   // Submodule state
   submodules: null,
+  selectedSubmodule: null,
+  repositoryStack: [],
+  isLoadingSubmodule: false,
+  submoduleError: null,
+
+  // GitHub integration state
+  githubRepoInfo: null,
+  githubToken: localStorage.getItem('github_token'),
+  commitGitHubInfo: new Map<string, CommitGitHubInfo>(),
+  isLoadingGitHubInfo: false,
+  githubError: null,
 
   // Date filter state
   dateFilter: null,
@@ -974,5 +1016,179 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         colorByAuthor: !state.graphSettings.colorByAuthor,
       },
     }));
+  },
+
+  // GitHub integration actions
+  setGitHubToken: async (token: string | null) => {
+    try {
+      await setGitHubTokenApi(token);
+      if (token) {
+        localStorage.setItem('github_token', token);
+      } else {
+        localStorage.removeItem('github_token');
+      }
+      set({ githubToken: token, githubError: null });
+      // Refresh repo info after setting token
+      get().fetchGitHubRepoInfo();
+    } catch (error) {
+      set({ githubError: (error as Error).message });
+    }
+  },
+
+  fetchGitHubRepoInfo: async () => {
+    const { repository, githubToken } = get();
+    if (!repository) return;
+
+    // Initialize token on backend if we have one stored
+    if (githubToken) {
+      try {
+        await setGitHubTokenApi(githubToken);
+      } catch {
+        // Ignore token setting errors
+      }
+    }
+
+    try {
+      const repoInfo = await getGitHubRepoInfo(repository.path);
+      set({ githubRepoInfo: repoInfo, githubError: null });
+    } catch (error) {
+      set({ githubRepoInfo: null, githubError: (error as Error).message });
+    }
+  },
+
+  fetchCommitGitHubInfo: async (commitHash: string) => {
+    const { repository, githubRepoInfo, commitGitHubInfo } = get();
+    if (!repository || !githubRepoInfo?.isGitHub) return;
+
+    // Check cache
+    if (commitGitHubInfo.has(commitHash)) return;
+
+    set({ isLoadingGitHubInfo: true, githubError: null });
+
+    try {
+      const info = await getCommitGitHubInfo(repository.path, commitHash);
+      set((state) => {
+        const newMap = new Map(state.commitGitHubInfo);
+        newMap.set(commitHash, info);
+        return { commitGitHubInfo: newMap, isLoadingGitHubInfo: false };
+      });
+    } catch (error) {
+      set({ githubError: (error as Error).message, isLoadingGitHubInfo: false });
+    }
+  },
+
+  // Submodule navigation actions
+  setSelectedSubmodule: (submodule: Submodule | null) => {
+    set({ selectedSubmodule: submodule });
+  },
+
+  navigateToSubmodule: async (submodulePath: string) => {
+    const { repository, repositoryStack } = get();
+    if (!repository) return;
+
+    set({ isLoadingSubmodule: true, submoduleError: null });
+
+    try {
+      // Load the submodule as a repository
+      const submoduleRepo = await loadSubmoduleRepository(repository.path, submodulePath);
+
+      // Push current repo to stack for breadcrumb navigation
+      const newStack = [...repositoryStack, { path: repository.path, name: repository.name }];
+
+      set({
+        repository: {
+          ...submoduleRepo,
+          loadedCommitCount: submoduleRepo.commits.length,
+          totalCommitCount: submoduleRepo.commits.length,
+        },
+        adjacencyMap: buildAdjacencyMap(submoduleRepo.commits),
+        repositoryStack: newStack,
+        selectedCommit: null,
+        selectedSubmodule: null,
+        submodules: null, // Will be fetched again for nested submodules
+        isLoadingSubmodule: false,
+        // Reset GitHub info for new repo
+        githubRepoInfo: null,
+        commitGitHubInfo: new Map<string, CommitGitHubInfo>(),
+      });
+
+      // Fetch submodules and GitHub info for the new repo
+      get().fetchSubmodules();
+      get().fetchGitHubRepoInfo();
+    } catch (error) {
+      set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+    }
+  },
+
+  navigateBack: async () => {
+    const { repositoryStack } = get();
+    if (repositoryStack.length === 0) return;
+
+    const newStack = [...repositoryStack];
+    const previousRepo = newStack.pop()!;
+
+    set({ isLoadingSubmodule: true, submoduleError: null });
+
+    try {
+      const repository = await loadRepository(previousRepo.path);
+
+      set({
+        repository: {
+          ...repository,
+          loadedCommitCount: repository.commits.length,
+          totalCommitCount: repository.commits.length,
+        },
+        adjacencyMap: buildAdjacencyMap(repository.commits),
+        repositoryStack: newStack,
+        selectedCommit: null,
+        selectedSubmodule: null,
+        submodules: null,
+        isLoadingSubmodule: false,
+        // Reset GitHub info
+        githubRepoInfo: null,
+        commitGitHubInfo: new Map<string, CommitGitHubInfo>(),
+      });
+
+      // Fetch submodules and GitHub info
+      get().fetchSubmodules();
+      get().fetchGitHubRepoInfo();
+    } catch (error) {
+      set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+    }
+  },
+
+  navigateToRoot: () => {
+    const { repositoryStack } = get();
+    if (repositoryStack.length === 0) return;
+
+    // Get root repo path
+    const rootRepo = repositoryStack[0];
+
+    set({ isLoadingSubmodule: true, submoduleError: null });
+
+    loadRepository(rootRepo.path)
+      .then((repository) => {
+        set({
+          repository: {
+            ...repository,
+            loadedCommitCount: repository.commits.length,
+            totalCommitCount: repository.commits.length,
+          },
+          adjacencyMap: buildAdjacencyMap(repository.commits),
+          repositoryStack: [],
+          selectedCommit: null,
+          selectedSubmodule: null,
+          submodules: null,
+          isLoadingSubmodule: false,
+          githubRepoInfo: null,
+          commitGitHubInfo: new Map<string, CommitGitHubInfo>(),
+        });
+
+        get().fetchSubmodules();
+        get().fetchGitHubRepoInfo();
+      })
+      .catch((error) => {
+        set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+      });
   },
 }));
