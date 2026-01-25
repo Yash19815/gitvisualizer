@@ -114,6 +114,8 @@ repositoryRoutes.post('/repository/commits', validatePath, async (req: Request, 
     const since = req.query.since as string | undefined;
     const until = req.query.until as string | undefined;
     const branch = req.query.branch as string | undefined;
+    const authorsParam = req.query.authors as string | undefined;
+    const authors = authorsParam ? authorsParam.split(',').filter(Boolean) : undefined;
 
     const isValid = await gitService.validateRepository(path);
     if (!isValid) {
@@ -121,7 +123,7 @@ repositoryRoutes.post('/repository/commits', validatePath, async (req: Request, 
       return;
     }
 
-    const result = await gitService.getCommitsPaginated(path, { maxCount, skip, firstParent, since, until, branch });
+    const result = await gitService.getCommitsPaginated(path, { maxCount, skip, firstParent, since, until, branch, authors });
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });
@@ -242,6 +244,80 @@ repositoryRoutes.post('/repository/activity', validatePath, async (req: Request,
 
     const activity = await gitService.getActivityHeatmap(path, days);
     res.json({ success: true, data: activity });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get code churn analysis
+repositoryRoutes.post('/repository/code-churn', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const limit = parseInt(req.query.limit as string) || 50;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const churn = await gitService.getCodeChurn(path, limit);
+    res.json({ success: true, data: churn });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get bus factor analysis
+repositoryRoutes.post('/repository/bus-factor', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+    const minCommits = parseInt(req.query.minCommits as string) || 5;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const busFactor = await gitService.getBusFactor(path, minCommits);
+    res.json({ success: true, data: busFactor });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get commit patterns (hourly/daily distribution)
+repositoryRoutes.post('/repository/commit-patterns', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const patterns = await gitService.getCommitPatterns(path);
+    res.json({ success: true, data: patterns });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+// Get branch lifespans
+repositoryRoutes.post('/repository/branch-lifespans', validatePath, async (req: Request, res: Response) => {
+  try {
+    const path = req.body.validatedPath;
+
+    const isValid = await gitService.validateRepository(path);
+    if (!isValid) {
+      res.status(400).json({ success: false, error: 'Not a valid git repository' });
+      return;
+    }
+
+    const lifespans = await gitService.getBranchLifespans(path);
+    res.json({ success: true, data: lifespans });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });
   }

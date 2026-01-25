@@ -31,40 +31,40 @@ function CommitDetailsContent() {
     <div className="p-4 space-y-4 overflow-y-auto h-full">
       {/* Hash */}
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Hash</label>
-        <p className="mt-1 font-mono text-sm bg-gray-100 p-2 rounded break-all">
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Hash</label>
+        <p className="mt-1 font-mono text-sm bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-2 rounded break-all">
           {selectedCommit.hash}
         </p>
       </div>
 
       {/* Message */}
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Message</label>
-        <p className="mt-1 text-sm font-medium text-gray-900">{selectedCommit.message}</p>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Message</label>
+        <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{selectedCommit.message}</p>
         {selectedCommit.body && (
-          <p className="mt-2 text-sm text-gray-600 whitespace-pre-wrap">{selectedCommit.body}</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{selectedCommit.body}</p>
         )}
       </div>
 
       {/* Author */}
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Author</label>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Author</label>
         <p className="mt-1 text-sm">
-          <span className="font-medium text-gray-900">{selectedCommit.author.name}</span>
-          <span className="text-gray-500"> &lt;{selectedCommit.author.email}&gt;</span>
+          <span className="font-medium text-gray-900 dark:text-gray-100">{selectedCommit.author.name}</span>
+          <span className="text-gray-500 dark:text-gray-400"> &lt;{selectedCommit.author.email}&gt;</span>
         </p>
       </div>
 
       {/* Date */}
       <div>
-        <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Date</label>
-        <p className="mt-1 text-sm text-gray-700">{formatDate(selectedCommit.date)}</p>
+        <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</label>
+        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">{formatDate(selectedCommit.date)}</p>
       </div>
 
       {/* Parents */}
       {selectedCommit.parents.length > 0 && (
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             Parents ({selectedCommit.parents.length})
           </label>
           <div className="mt-1 space-y-1">
@@ -72,9 +72,9 @@ function CommitDetailsContent() {
               <button
                 key={parent}
                 onClick={() => handleParentClick(parent)}
-                className="block w-full text-left font-mono text-sm text-blue-600 hover:text-blue-800 hover:underline truncate"
+                className="block w-full text-left font-mono text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline truncate"
               >
-                {index > 0 && <span className="text-gray-400 mr-1">(merge)</span>}
+                {index > 0 && <span className="text-gray-400 dark:text-gray-500 mr-1">(merge)</span>}
                 {parent.substring(0, 12)}
               </button>
             ))}
@@ -85,7 +85,7 @@ function CommitDetailsContent() {
       {/* Refs */}
       {selectedCommit.refs.length > 0 && (
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
             References
           </label>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -94,9 +94,9 @@ function CommitDetailsContent() {
                 key={ref.name}
                 className={`
                   text-xs px-2 py-1 rounded-full
-                  ${ref.type === 'branch' ? 'bg-blue-100 text-blue-700' : ''}
-                  ${ref.type === 'tag' ? 'bg-green-100 text-green-700' : ''}
-                  ${ref.type === 'remote' ? 'bg-purple-100 text-purple-700' : ''}
+                  ${ref.type === 'branch' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : ''}
+                  ${ref.type === 'tag' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''}
+                  ${ref.type === 'remote' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ''}
                   ${ref.isHead ? 'font-bold ring-1 ring-blue-400' : ''}
                 `}
               >
@@ -120,7 +120,7 @@ export function CommitDetails() {
 
   if (!selectedCommit) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-400 p-4">
+      <div className="h-full flex items-center justify-center text-gray-400 dark:text-gray-500 p-4">
         <p className="text-center text-sm">Click on a commit to see details</p>
       </div>
     );
@@ -136,17 +136,17 @@ export function CommitDetails() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900 truncate">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
           <span className="font-mono text-sm">{selectedCommit.shortHash}</span>
-          <span className="text-gray-400 mx-2">·</span>
-          <span className="text-sm font-normal text-gray-600 truncate">
+          <span className="text-gray-400 dark:text-gray-500 mx-2">·</span>
+          <span className="text-sm font-normal text-gray-600 dark:text-gray-400 truncate">
             {selectedCommit.message}
           </span>
         </h3>
         <button
           onClick={() => setSelectedCommit(null)}
-          className="text-gray-400 hover:text-gray-600 p-1 ml-2 flex-shrink-0"
+          className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 ml-2 flex-shrink-0"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

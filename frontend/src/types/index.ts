@@ -290,3 +290,81 @@ export interface RepositoryStackItem {
   path: string;
   name: string;
 }
+
+// Code Churn Analysis Types
+export interface FileChurnStats {
+  path: string;
+  changeCount: number;
+  totalAdditions: number;
+  totalDeletions: number;
+  authors: string[];
+  lastModified: string;
+  churnScore: number;
+}
+
+export interface CodeChurnResponse {
+  success: boolean;
+  data?: FileChurnStats[];
+  error?: string;
+}
+
+// Bus Factor Types
+export interface FileBusFactor {
+  path: string;
+  primaryAuthor: {
+    name: string;
+    email: string;
+    percentage: number;
+  };
+  totalCommits: number;
+  uniqueContributors: number;
+  busFactor: number;
+  contributors: {
+    name: string;
+    email: string;
+    commits: number;
+    percentage: number;
+  }[];
+}
+
+export interface BusFactorResponse {
+  success: boolean;
+  data?: FileBusFactor[];
+  error?: string;
+}
+
+// Commit Patterns Types
+export interface CommitPatternCell {
+  hour: number;      // 0-23
+  dayOfWeek: number; // 0-6 (Sunday-Saturday)
+  count: number;
+}
+
+export interface CommitPatterns {
+  hourlyDistribution: CommitPatternCell[];
+  peakHour: number;
+  peakDay: number;
+  totalCommits: number;
+}
+
+export interface CommitPatternsResponse {
+  success: boolean;
+  data?: CommitPatterns;
+  error?: string;
+}
+
+// Branch Lifespan Types
+export interface BranchLifespan {
+  branchName: string;
+  createdAt: string;
+  mergedAt: string | null;
+  lifespanDays: number | null;
+  status: 'active' | 'merged' | 'stale';
+  commitCount: number;
+}
+
+export interface BranchLifespanResponse {
+  success: boolean;
+  data?: BranchLifespan[];
+  error?: string;
+}

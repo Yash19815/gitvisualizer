@@ -53,6 +53,7 @@ export interface PaginationOptions {
   since?: string; // ISO date string for --since filter
   until?: string; // ISO date string for --until filter
   branch?: string; // Filter commits by specific branch
+  authors?: string[]; // Filter commits by specific author emails
 }
 
 export interface PaginatedCommits {
@@ -155,6 +156,60 @@ export interface BranchComparison {
   files: FileDiff[];
   totalAdditions: number;
   totalDeletions: number;
+}
+
+// Code Churn Analysis interfaces
+export interface FileChurnStats {
+  path: string;
+  changeCount: number;
+  totalAdditions: number;
+  totalDeletions: number;
+  authors: string[];
+  lastModified: string;
+  churnScore: number;
+}
+
+// Bus Factor interfaces
+export interface FileBusFactor {
+  path: string;
+  primaryAuthor: {
+    name: string;
+    email: string;
+    percentage: number;
+  };
+  totalCommits: number;
+  uniqueContributors: number;
+  busFactor: number;
+  contributors: {
+    name: string;
+    email: string;
+    commits: number;
+    percentage: number;
+  }[];
+}
+
+// Commit Patterns interfaces
+export interface CommitPatternCell {
+  hour: number;
+  dayOfWeek: number;
+  count: number;
+}
+
+export interface CommitPatterns {
+  hourlyDistribution: CommitPatternCell[];
+  peakHour: number;
+  peakDay: number;
+  totalCommits: number;
+}
+
+// Branch Lifespan interfaces
+export interface BranchLifespan {
+  branchName: string;
+  createdAt: string;
+  mergedAt: string | null;
+  lifespanDays: number | null;
+  status: 'active' | 'merged' | 'stale';
+  commitCount: number;
 }
 
 function parseRefs(refsString: string): RefInfo[] {
@@ -474,7 +529,7 @@ class GitService {
     options: PaginationOptions = {}
   ): Promise<PaginatedCommits> {
     const git = this.getGit(repoPath);
-    const { maxCount = 500, skip = 0, firstParent = false, since, until, branch } = options;
+    const { maxCount = 500, skip = 0, firstParent = false, since, until, branch, authors } = options;
 
     const format = {
       hash: '%H',
@@ -527,6 +582,13 @@ class GitService {
       logOptions['--until'] = until;
     }
 
+    // Add author filters (multiple --author flags are OR'd together)
+    if (authors && authors.length > 0) {
+      for (const author of authors) {
+        logOptions[`--author=${author}`] = null;
+      }
+    }
+
     // Get total count with filters
     const getTotalWithFilters = async (): Promise<number> => {
       const args = ['rev-list', '--count'];
@@ -537,6 +599,11 @@ class GitService {
       }
       if (since) args.push(`--since=${since}`);
       if (until) args.push(`--until=${until}`);
+      if (authors && authors.length > 0) {
+        for (const author of authors) {
+          args.push(`--author=${author}`);
+        }
+      }
       try {
         const result = await git.raw(args);
         return parseInt(result.trim(), 10);
@@ -1351,6 +1418,372 @@ class GitService {
       totalAdditions,
       totalDeletions,
     };
+  }
+
+  // ===== CODE CHURN ANALYSIS =====
+
+  async getCodeChurn(repoPath: string, limit: number = 50): Promise<FileChurnStats[]> {
+    const git = this.getGit(repoPath);
+
+    // Get file changes with stats
+    const log = await git.raw([
+      'log',
+      '--all',
+      '--format=%H|%ae|%aI',
+      '--numstat',
+      '-n', '5000', // Limit for performance
+    ]);
+
+    // Parse and aggregate file stats
+    const fileStats = new Map<string, {
+      changeCount: number;
+      additions: number;
+      deletions: number;
+      authors: Set<string>;
+      lastModified: string;
+    }>();
+
+    let currentAuthor = '';
+    let currentDate = '';
+
+    for (const line of log.split('\n')) {
+      if (line.includes('|')) {
+        // Commit line: hash|author|date
+        const parts = line.split('|');
+        if (parts.length >= 3) {
+          currentAuthor = parts[1];
+          currentDate = parts[2];
+        }
+      } else if (line.match(/^\d+\t\d+\t/)) {
+        // Numstat line: additions\tdeletions\tfilepath
+        const parts = line.split('\t');
+        const additions = parseInt(parts[0], 10) || 0;
+        const deletions = parseInt(parts[1], 10) || 0;
+        const filePath = parts[2];
+
+        if (filePath && !filePath.includes(' => ')) {
+          if (!fileStats.has(filePath)) {
+            fileStats.set(filePath, {
+              changeCount: 0,
+              additions: 0,
+              deletions: 0,
+              authors: new Set(),
+              lastModified: currentDate,
+            });
+          }
+
+          const stats = fileStats.get(filePath)!;
+          stats.changeCount++;
+          stats.additions += additions;
+          stats.deletions += deletions;
+          stats.authors.add(currentAuthor);
+          if (currentDate > stats.lastModified) {
+            stats.lastModified = currentDate;
+          }
+        }
+      }
+    }
+
+    // Calculate churn score and convert to array
+    const result: FileChurnStats[] = [];
+    const now = new Date();
+
+    for (const [path, stats] of fileStats) {
+      // Churn score: weighted combination of change frequency, author count, and recency
+      const daysSinceModified = Math.max(1, (now.getTime() - new Date(stats.lastModified).getTime()) / (1000 * 60 * 60 * 24));
+      const recencyScore = Math.min(1, 30 / daysSinceModified); // Higher if modified recently
+      const churnScore = (stats.changeCount * 0.6) + (stats.authors.size * 0.2 * 10) + (recencyScore * 0.2 * 100);
+
+      result.push({
+        path,
+        changeCount: stats.changeCount,
+        totalAdditions: stats.additions,
+        totalDeletions: stats.deletions,
+        authors: Array.from(stats.authors),
+        lastModified: stats.lastModified,
+        churnScore: Math.round(churnScore * 100) / 100,
+      });
+    }
+
+    // Sort by churn score and limit
+    return result
+      .sort((a, b) => b.churnScore - a.churnScore)
+      .slice(0, limit);
+  }
+
+  // ===== BUS FACTOR ANALYSIS =====
+
+  async getBusFactor(repoPath: string, minCommits: number = 5): Promise<FileBusFactor[]> {
+    const git = this.getGit(repoPath);
+
+    // Get file authorship data
+    const log = await git.raw([
+      'log',
+      '--all',
+      '--format=%an|%ae',
+      '--name-only',
+      '-n', '5000', // Limit for performance
+    ]);
+
+    // Aggregate commits per file per author
+    const fileAuthors = new Map<string, Map<string, { name: string; email: string; commits: number }>>();
+
+    let currentAuthor = { name: '', email: '' };
+
+    for (const line of log.split('\n')) {
+      if (line.includes('|')) {
+        const [name, email] = line.split('|');
+        currentAuthor = { name, email };
+      } else if (line.trim() && !line.startsWith(' ')) {
+        const filePath = line.trim();
+        if (filePath) {
+          if (!fileAuthors.has(filePath)) {
+            fileAuthors.set(filePath, new Map());
+          }
+
+          const authors = fileAuthors.get(filePath)!;
+          const key = currentAuthor.email;
+          if (!authors.has(key)) {
+            authors.set(key, { ...currentAuthor, commits: 0 });
+          }
+          authors.get(key)!.commits++;
+        }
+      }
+    }
+
+    // Calculate bus factor for each file
+    const result: FileBusFactor[] = [];
+
+    for (const [path, authors] of fileAuthors) {
+      const contributorArray = Array.from(authors.values());
+      const totalCommits = contributorArray.reduce((sum, a) => sum + a.commits, 0);
+
+      // Skip files with few commits
+      if (totalCommits < minCommits) continue;
+
+      // Sort by commits descending
+      contributorArray.sort((a, b) => b.commits - a.commits);
+
+      const primary = contributorArray[0];
+      const primaryPercentage = (primary.commits / totalCommits) * 100;
+
+      // Calculate bus factor: count of contributors with >10% of commits
+      const significantContributors = contributorArray.filter(
+        a => (a.commits / totalCommits) >= 0.1
+      ).length;
+
+      result.push({
+        path,
+        primaryAuthor: {
+          name: primary.name,
+          email: primary.email,
+          percentage: Math.round(primaryPercentage * 10) / 10,
+        },
+        totalCommits,
+        uniqueContributors: contributorArray.length,
+        busFactor: significantContributors,
+        contributors: contributorArray.slice(0, 5).map(c => ({
+          name: c.name,
+          email: c.email,
+          commits: c.commits,
+          percentage: Math.round((c.commits / totalCommits) * 1000) / 10,
+        })),
+      });
+    }
+
+    // Sort by bus factor ascending (lower = higher risk)
+    return result.sort((a, b) => a.busFactor - b.busFactor);
+  }
+
+  // ===== COMMIT PATTERNS =====
+
+  async getCommitPatterns(repoPath: string): Promise<CommitPatterns> {
+    const git = this.getGit(repoPath);
+
+    // Get all commit timestamps
+    const log = await git.raw([
+      'log',
+      '--all',
+      '--format=%aI',
+    ]);
+
+    // Build 7x24 matrix (dayOfWeek x hour)
+    const matrix = new Map<string, number>();
+    const hourTotals = new Map<number, number>();
+    const dayTotals = new Map<number, number>();
+    let totalCommits = 0;
+
+    for (const line of log.trim().split('\n').filter(Boolean)) {
+      const date = new Date(line);
+      const hour = date.getHours();
+      const dayOfWeek = date.getDay();
+      const key = `${dayOfWeek}-${hour}`;
+
+      matrix.set(key, (matrix.get(key) || 0) + 1);
+      hourTotals.set(hour, (hourTotals.get(hour) || 0) + 1);
+      dayTotals.set(dayOfWeek, (dayTotals.get(dayOfWeek) || 0) + 1);
+      totalCommits++;
+    }
+
+    // Find peak hour and day
+    let peakHour = 0;
+    let peakHourCount = 0;
+    for (const [hour, count] of hourTotals) {
+      if (count > peakHourCount) {
+        peakHour = hour;
+        peakHourCount = count;
+      }
+    }
+
+    let peakDay = 0;
+    let peakDayCount = 0;
+    for (const [day, count] of dayTotals) {
+      if (count > peakDayCount) {
+        peakDay = day;
+        peakDayCount = count;
+      }
+    }
+
+    // Convert matrix to array
+    const hourlyDistribution: CommitPatternCell[] = [];
+    for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+      for (let hour = 0; hour < 24; hour++) {
+        const key = `${dayOfWeek}-${hour}`;
+        hourlyDistribution.push({
+          dayOfWeek,
+          hour,
+          count: matrix.get(key) || 0,
+        });
+      }
+    }
+
+    return {
+      hourlyDistribution,
+      peakHour,
+      peakDay,
+      totalCommits,
+    };
+  }
+
+  // ===== BRANCH LIFESPAN =====
+
+  async getBranchLifespans(repoPath: string): Promise<BranchLifespan[]> {
+    const git = this.getGit(repoPath);
+
+    // Get all branches
+    const branches = await this.getBranches(git);
+    const localBranches = branches.filter(b => !b.isRemote);
+
+    // Find default branch (main or master)
+    const defaultBranch = localBranches.find(b => b.name === 'main' || b.name === 'master')?.name || 'main';
+
+    // Get merged branches
+    let mergedBranchesRaw = '';
+    try {
+      mergedBranchesRaw = await git.raw(['branch', '--merged', defaultBranch]);
+    } catch {
+      // Default branch might not exist
+    }
+    const mergedBranches = new Set(
+      mergedBranchesRaw.split('\n')
+        .map(b => b.replace('*', '').trim())
+        .filter(Boolean)
+    );
+
+    const result: BranchLifespan[] = [];
+    const now = new Date();
+    const STALE_DAYS = 90;
+
+    for (const branch of localBranches) {
+      try {
+        // Get first commit on this branch (when it diverged)
+        const firstCommit = await git.raw([
+          'log',
+          branch.name,
+          '--reverse',
+          '--format=%aI',
+          '-1',
+        ]);
+
+        // Get last commit on this branch
+        const lastCommit = await git.raw([
+          'log',
+          branch.name,
+          '--format=%aI',
+          '-1',
+        ]);
+
+        // Get commit count
+        const commitCountRaw = await git.raw([
+          'rev-list',
+          '--count',
+          branch.name,
+        ]);
+
+        const createdAt = firstCommit.trim();
+        const lastActivity = lastCommit.trim();
+        const commitCount = parseInt(commitCountRaw.trim(), 10);
+
+        // Determine status
+        const isMerged = mergedBranches.has(branch.name) && branch.name !== defaultBranch;
+        const daysSinceActivity = (now.getTime() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24);
+        const isStale = !isMerged && daysSinceActivity > STALE_DAYS;
+
+        let status: 'active' | 'merged' | 'stale' = 'active';
+        if (isMerged) status = 'merged';
+        else if (isStale) status = 'stale';
+
+        // Calculate lifespan
+        let lifespanDays: number | null = null;
+        let mergedAt: string | null = null;
+
+        if (isMerged) {
+          // Find merge commit
+          try {
+            const mergeLog = await git.raw([
+              'log',
+              defaultBranch,
+              '--merges',
+              '--format=%aI',
+              '--ancestry-path',
+              `${branch.name}..${defaultBranch}`,
+              '-1',
+            ]);
+            if (mergeLog.trim()) {
+              mergedAt = mergeLog.trim();
+              lifespanDays = Math.round(
+                (new Date(mergedAt).getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
+              );
+            }
+          } catch {
+            // Merge commit not found
+          }
+        } else {
+          // Active/stale branch - lifespan is from creation to now
+          lifespanDays = Math.round(daysSinceActivity);
+        }
+
+        result.push({
+          branchName: branch.name,
+          createdAt,
+          mergedAt,
+          lifespanDays,
+          status,
+          commitCount,
+        });
+      } catch {
+        // Skip branches that can't be analyzed
+      }
+    }
+
+    // Sort by status (active first, then stale, then merged), then by lifespan
+    return result.sort((a, b) => {
+      const statusOrder = { active: 0, stale: 1, merged: 2 };
+      if (a.status !== b.status) {
+        return statusOrder[a.status] - statusOrder[b.status];
+      }
+      return (b.lifespanDays || 0) - (a.lifespanDays || 0);
+    });
   }
 }
 

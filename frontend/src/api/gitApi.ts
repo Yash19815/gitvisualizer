@@ -25,6 +25,14 @@ import type {
   DateRange,
   BranchComparison,
   BranchComparisonResponse,
+  FileChurnStats,
+  CodeChurnResponse,
+  FileBusFactor,
+  BusFactorResponse,
+  CommitPatterns,
+  CommitPatternsResponse,
+  BranchLifespan,
+  BranchLifespanResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -66,9 +74,9 @@ export async function getRepoMetadata(path: string): Promise<RepositoryMetadata>
 // Get paginated commits
 export async function getCommitsPaginated(
   path: string,
-  options: { maxCount?: number; skip?: number; firstParent?: boolean; dateRange?: DateRange; branch?: string } = {}
+  options: { maxCount?: number; skip?: number; firstParent?: boolean; dateRange?: DateRange; branch?: string; authors?: string[] } = {}
 ): Promise<PaginatedCommits> {
-  const { maxCount = 500, skip = 0, firstParent = false, dateRange, branch } = options;
+  const { maxCount = 500, skip = 0, firstParent = false, dateRange, branch, authors } = options;
   const params = new URLSearchParams({
     maxCount: maxCount.toString(),
     skip: skip.toString(),
@@ -86,6 +94,11 @@ export async function getCommitsPaginated(
   // Add branch filter if provided
   if (branch) {
     params.set('branch', branch);
+  }
+
+  // Add author filters if provided
+  if (authors && authors.length > 0) {
+    params.set('authors', authors.join(','));
   }
 
   const response = await fetch(`${API_BASE}/repository/commits?${params}`, {
@@ -576,6 +589,84 @@ export async function compareBranches(
 
   if (!response.ok || !data.success) {
     throw new Error(data.error || 'Failed to compare branches');
+  }
+
+  return data.data!;
+}
+
+// Analytics APIs
+
+export async function getCodeChurn(
+  repoPath: string,
+  limit: number = 50
+): Promise<FileChurnStats[]> {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  const response = await fetch(`${API_BASE}/repository/code-churn?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: CodeChurnResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get code churn');
+  }
+
+  return data.data!;
+}
+
+export async function getBusFactor(
+  repoPath: string,
+  minCommits: number = 5
+): Promise<FileBusFactor[]> {
+  const params = new URLSearchParams({ minCommits: minCommits.toString() });
+  const response = await fetch(`${API_BASE}/repository/bus-factor?${params}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: BusFactorResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get bus factor');
+  }
+
+  return data.data!;
+}
+
+export async function getCommitPatterns(
+  repoPath: string
+): Promise<CommitPatterns> {
+  const response = await fetch(`${API_BASE}/repository/commit-patterns`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: CommitPatternsResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get commit patterns');
+  }
+
+  return data.data!;
+}
+
+export async function getBranchLifespans(
+  repoPath: string
+): Promise<BranchLifespan[]> {
+  const response = await fetch(`${API_BASE}/repository/branch-lifespans`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: repoPath }),
+  });
+
+  const data: BranchLifespanResponse = await response.json();
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.error || 'Failed to get branch lifespans');
   }
 
   return data.data!;

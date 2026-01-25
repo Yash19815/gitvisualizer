@@ -40,6 +40,138 @@ export interface GraphSettings {
   highlightedCommits: Set<string>;
 }
 
+// Simple vertical layout fallback when dagre can't be used (e.g., cycles detected)
+function createSimpleLayout(
+  commits: Commit[],
+  graphSettings: GraphSettings
+): { nodes: CommitNode[]; edges: CommitEdge[] } {
+  const { compactMode, colorByAuthor, highlightedCommits } = graphSettings;
+  const nodeHeight = compactMode ? NODE_HEIGHT_COMPACT : NODE_HEIGHT_NORMAL;
+  const spacing = compactMode ? 20 : 40;
+
+  const colorMap = colorByAuthor
+    ? assignAuthorColors(commits)
+    : assignBranchColors(commits);
+
+  const commitSet = new Set(commits.map(c => c.hash));
+
+  const nodes: CommitNode[] = commits.map((commit, index) => ({
+    id: commit.hash,
+    type: 'commit',
+    position: {
+      x: 50,
+      y: index * (nodeHeight + spacing),
+    },
+    data: {
+      commit,
+      color: colorMap.get(commit.hash) || '#888',
+      isCompact: compactMode,
+      isHighlighted: highlightedCommits.has(commit.hash),
+    },
+  }));
+
+  const edges: CommitEdge[] = [];
+  const addedEdges = new Set<string>();
+
+  for (const commit of commits) {
+    for (let i = 0; i < commit.parents.length; i++) {
+      const parentHash = commit.parents[i];
+      if (parentHash === commit.hash) continue;
+      if (!commitSet.has(parentHash)) continue;
+      const edgeKey = `${commit.hash}->${parentHash}`;
+      if (addedEdges.has(edgeKey)) continue;
+      addedEdges.add(edgeKey);
+
+      edges.push({
+        id: `${commit.hash}-${parentHash}`,
+        source: commit.hash,
+        target: parentHash,
+        type: 'smoothstep',
+        style: {
+          stroke: colorMap.get(commit.hash) || '#888',
+          strokeWidth: 2,
+        },
+        data: {
+          isMerge: i > 0,
+          color: colorMap.get(commit.hash) || '#888',
+        },
+      });
+    }
+  }
+
+  return { nodes, edges };
+}
+
+// Detect cycles in commit graph using iterative DFS (avoids stack overflow)
+function hasCycle(commits: Commit[]): boolean {
+  const commitMap = new Map(commits.map(c => [c.hash, c]));
+  const visited = new Set<string>();
+  const finished = new Set<string>();
+
+  for (const startCommit of commits) {
+    if (visited.has(startCommit.hash)) continue;
+
+    // Iterative DFS with explicit stack
+    const stack: Array<{ hash: string; parentIndex: number }> = [
+      { hash: startCommit.hash, parentIndex: 0 }
+    ];
+    const path = new Set<string>();
+
+    while (stack.length > 0) {
+      const current = stack[stack.length - 1];
+      const commit = commitMap.get(current.hash);
+
+      if (current.parentIndex === 0) {
+        // First visit to this node
+        if (path.has(current.hash)) {
+          console.error(`Cycle detected in commit graph at ${current.hash}`);
+          return true;
+        }
+        if (finished.has(current.hash)) {
+          stack.pop();
+          continue;
+        }
+        visited.add(current.hash);
+        path.add(current.hash);
+      }
+
+      // Find next unvisited parent
+      let foundNext = false;
+      if (commit) {
+        while (current.parentIndex < commit.parents.length) {
+          const parentHash = commit.parents[current.parentIndex];
+          current.parentIndex++;
+
+          if (parentHash === current.hash) continue; // Skip self-loop
+          if (!commitMap.has(parentHash)) continue; // Skip external parents
+
+          if (path.has(parentHash)) {
+            console.error(`Cycle detected in commit graph at ${parentHash}`);
+            return true;
+          }
+
+          if (!finished.has(parentHash)) {
+            stack.push({ hash: parentHash, parentIndex: 0 });
+            foundNext = true;
+            break;
+          }
+        }
+      }
+
+      if (!foundNext) {
+        // Done with this node
+        path.delete(current.hash);
+        finished.add(current.hash);
+        stack.pop();
+      }
+    }
+  }
+  return false;
+}
+
+// Threshold for using simple layout instead of dagre (to avoid stack overflow)
+const DAGRE_MAX_COMMITS = 5000;
+
 export function layoutCommitGraph(
   commits: Commit[],
   options: LayoutOptions = { direction: 'TB', nodeSpacing: 40, rankSpacing: 80 },
@@ -47,6 +179,18 @@ export function layoutCommitGraph(
 ): { nodes: CommitNode[]; edges: CommitEdge[] } {
   if (commits.length === 0) {
     return { nodes: [], edges: [] };
+  }
+
+  // For large repos, skip dagre entirely to avoid stack overflow in its recursive DFS
+  if (commits.length > DAGRE_MAX_COMMITS) {
+    console.warn(`Large repo (${commits.length} commits) - using simple layout to avoid stack overflow`);
+    return createSimpleLayout(commits, graphSettings);
+  }
+
+  // Check for cycles which would cause dagre to stack overflow
+  if (hasCycle(commits)) {
+    console.error('Commit graph contains cycles - cannot layout. Returning simple vertical layout.');
+    return createSimpleLayout(commits, graphSettings);
   }
 
   const { compactMode, colorByAuthor, highlightedCommits } = graphSettings;
@@ -84,27 +228,43 @@ export function layoutCommitGraph(
   }
 
   // Add edges (child -> parent)
+  // Track added edges to prevent duplicates which can cause cycles in dagre
+  const addedEdges = new Set<string>();
   const edges: CommitEdge[] = [];
   for (const commit of commits) {
     for (let i = 0; i < commit.parents.length; i++) {
       const parentHash = commit.parents[i];
-      if (commitSet.has(parentHash)) {
-        g.setEdge(commit.hash, parentHash);
-        edges.push({
-          id: `${commit.hash}-${parentHash}`,
-          source: commit.hash,
-          target: parentHash,
-          type: 'smoothstep',
-          style: {
-            stroke: colorMap.get(commit.hash) || '#888',
-            strokeWidth: 2,
-          },
-          data: {
-            isMerge: i > 0,
-            color: colorMap.get(commit.hash) || '#888',
-          },
-        });
+      // Skip self-loops (would cause infinite recursion in dagre DFS)
+      if (parentHash === commit.hash) {
+        console.warn(`Skipping self-loop: commit ${commit.hash} references itself as parent`);
+        continue;
       }
+      // Skip if parent not in our commit set
+      if (!commitSet.has(parentHash)) {
+        continue;
+      }
+      // Skip duplicate edges (same parent listed multiple times)
+      const edgeKey = `${commit.hash}->${parentHash}`;
+      if (addedEdges.has(edgeKey)) {
+        continue;
+      }
+      addedEdges.add(edgeKey);
+
+      g.setEdge(commit.hash, parentHash);
+      edges.push({
+        id: `${commit.hash}-${parentHash}`,
+        source: commit.hash,
+        target: parentHash,
+        type: 'smoothstep',
+        style: {
+          stroke: colorMap.get(commit.hash) || '#888',
+          strokeWidth: 2,
+        },
+        data: {
+          isMerge: i > 0,
+          color: colorMap.get(commit.hash) || '#888',
+        },
+      });
     }
   }
 

@@ -16,6 +16,10 @@ import type {
   GitHubRepoInfo,
   CommitGitHubInfo,
   RepositoryStackItem,
+  FileChurnStats,
+  FileBusFactor,
+  CommitPatterns,
+  BranchLifespan,
 } from '../types';
 import {
   loadRepository,
@@ -35,6 +39,10 @@ import {
   getSubmodules,
   compareBranches,
   loadSubmoduleRepository,
+  getCodeChurn,
+  getBusFactor,
+  getCommitPatterns,
+  getBranchLifespans,
 } from '../api/gitApi';
 import {
   setGitHubToken as setGitHubTokenApi,
@@ -107,6 +115,18 @@ interface RepositoryState {
   isLoadingStats: boolean;
   statsError: string | null;
   showStatsPanel: boolean;
+
+  // Analytics state
+  codeChurn: FileChurnStats[] | null;
+  busFactor: FileBusFactor[] | null;
+  commitPatterns: CommitPatterns | null;
+  branchLifespans: BranchLifespan[] | null;
+
+  // Author filter state
+  selectedAuthors: string[];
+
+  // Dark mode state
+  darkMode: boolean;
 
   // Submodule state
   submodules: Submodule[] | null;
@@ -184,6 +204,18 @@ interface RepositoryState {
   toggleStatsPanel: () => void;
   fetchSubmodules: () => Promise<void>;
 
+  // Analytics actions
+  fetchCodeChurn: () => Promise<void>;
+  fetchBusFactor: () => Promise<void>;
+  fetchCommitPatterns: () => Promise<void>;
+  fetchBranchLifespans: () => Promise<void>;
+
+  // Author filter actions
+  setSelectedAuthors: (authors: string[]) => Promise<void>;
+
+  // Dark mode actions
+  toggleDarkMode: () => void;
+
   // Date filter actions
   setDateFilter: (dateRange: DateRange | null) => void;
   applyDateFilter: () => Promise<void>;
@@ -252,6 +284,18 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   isLoadingStats: false,
   statsError: null,
   showStatsPanel: false,
+
+  // Analytics state
+  codeChurn: null,
+  busFactor: null,
+  commitPatterns: null,
+  branchLifespans: null,
+
+  // Author filter state
+  selectedAuthors: [],
+
+  // Dark mode state
+  darkMode: localStorage.getItem('darkMode') === 'true',
 
   // Submodule state
   submodules: null,
@@ -752,6 +796,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       statsError: null,
       showStatsPanel: false,
       submodules: null,
+      // Reset analytics state
+      codeChurn: null,
+      busFactor: null,
+      commitPatterns: null,
+      branchLifespans: null,
+      // Reset author filter
+      selectedAuthors: [],
       // Reset date filter, branch/tag filter and branch comparison state
       dateFilter: null,
       selectedBranchFilter: null,
@@ -919,13 +970,119 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
   },
 
+  // Analytics actions
+  fetchCodeChurn: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    try {
+      const data = await getCodeChurn(repository.path);
+      set({ codeChurn: data });
+    } catch (error) {
+      set({ statsError: (error as Error).message });
+    }
+  },
+
+  fetchBusFactor: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    try {
+      const data = await getBusFactor(repository.path);
+      set({ busFactor: data });
+    } catch (error) {
+      set({ statsError: (error as Error).message });
+    }
+  },
+
+  fetchCommitPatterns: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    try {
+      const data = await getCommitPatterns(repository.path);
+      set({ commitPatterns: data });
+    } catch (error) {
+      set({ statsError: (error as Error).message });
+    }
+  },
+
+  fetchBranchLifespans: async () => {
+    const { repository } = get();
+    if (!repository) return;
+
+    try {
+      const data = await getBranchLifespans(repository.path);
+      set({ branchLifespans: data });
+    } catch (error) {
+      set({ statsError: (error as Error).message });
+    }
+  },
+
+  // Author filter actions
+  setSelectedAuthors: async (authors: string[]) => {
+    const { repository, dateFilter, loadMode, selectedBranchFilter } = get();
+    if (!repository) return;
+
+    set({
+      selectedAuthors: authors,
+      isLoading: true,
+      loadingMessage: authors.length > 0 ? 'Filtering by author...' : 'Loading all commits...',
+      loadingProgress: 30,
+    });
+
+    try {
+      const result = await getCommitsPaginated(repository.path, {
+        maxCount: 1000,
+        skip: 0,
+        firstParent: loadMode === 'simplified',
+        dateRange: dateFilter || undefined,
+        branch: selectedBranchFilter || undefined,
+        authors: authors.length > 0 ? authors : undefined,
+      });
+
+      set((state) => {
+        if (!state.repository) {
+          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+        }
+        return {
+          repository: {
+            ...state.repository,
+            commits: result.commits,
+            loadedCommitCount: result.commits.length,
+            totalCommitCount: result.total,
+          },
+          adjacencyMap: buildAdjacencyMap(result.commits),
+          isLoading: false,
+          loadingProgress: 100,
+          loadingMessage: '',
+        };
+      });
+    } catch (error) {
+      set({
+        error: (error as Error).message,
+        isLoading: false,
+        loadingProgress: -1,
+        loadingMessage: '',
+      });
+    }
+  },
+
+  // Dark mode actions
+  toggleDarkMode: () => {
+    const newDarkMode = !get().darkMode;
+    localStorage.setItem('darkMode', String(newDarkMode));
+    document.documentElement.classList.toggle('dark', newDarkMode);
+    set({ darkMode: newDarkMode });
+  },
+
   // Date filter actions
   setDateFilter: (dateRange: DateRange | null) => {
     set({ dateFilter: dateRange });
   },
 
   applyDateFilter: async () => {
-    const { repository, dateFilter, loadMode, selectedBranchFilter } = get();
+    const { repository, dateFilter, loadMode, selectedBranchFilter, selectedAuthors } = get();
     if (!repository) return;
 
     set({
@@ -941,6 +1098,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         firstParent: loadMode === 'simplified',
         dateRange: dateFilter || undefined,
         branch: selectedBranchFilter || undefined,
+        authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
       });
 
       set((state) => {
@@ -972,7 +1130,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   // Branch filter actions
   setSelectedBranchFilter: async (branch: string | null) => {
-    const { repository, dateFilter, loadMode } = get();
+    const { repository, dateFilter, loadMode, selectedAuthors } = get();
     if (!repository) return;
 
     set({
@@ -990,6 +1148,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         firstParent: loadMode === 'simplified',
         dateRange: dateFilter || undefined,
         branch: branch || undefined,
+        authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
       });
 
       set((state) => {
@@ -1021,7 +1180,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   // Tag filter actions
   setSelectedTagFilter: async (tag: string | null) => {
-    const { repository, dateFilter, loadMode } = get();
+    const { repository, dateFilter, loadMode, selectedAuthors } = get();
     if (!repository) return;
 
     set({
@@ -1039,6 +1198,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         firstParent: loadMode === 'simplified',
         dateRange: dateFilter || undefined,
         branch: tag || undefined, // Tags work like branches in git log
+        authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
       });
 
       set((state) => {

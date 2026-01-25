@@ -9,15 +9,15 @@ export function GraphToolbar() {
   } = useRepositoryStore();
 
   return (
-    <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-white rounded-lg shadow-md border border-gray-200 p-1.5">
+    <div className="absolute top-4 left-4 z-10 flex items-center gap-2 bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 p-1.5">
       {/* Compact Mode Toggle */}
       <button
         onClick={toggleCompactMode}
         className={`
           flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors
           ${graphSettings.compactMode
-            ? 'bg-blue-100 text-blue-700'
-            : 'text-gray-600 hover:bg-gray-100'}
+            ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
         `}
         title={graphSettings.compactMode ? 'Switch to expanded view' : 'Switch to compact view'}
       >
@@ -31,7 +31,7 @@ export function GraphToolbar() {
         <span>{graphSettings.compactMode ? 'Compact' : 'Expanded'}</span>
       </button>
 
-      <div className="w-px h-5 bg-gray-200" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
 
       {/* Hide Merge Commits Toggle */}
       <button
@@ -39,8 +39,8 @@ export function GraphToolbar() {
         className={`
           flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors
           ${graphSettings.hideMergeCommits
-            ? 'bg-orange-100 text-orange-700'
-            : 'text-gray-600 hover:bg-gray-100'}
+            ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
         `}
         title={graphSettings.hideMergeCommits ? 'Show merge commits' : 'Hide merge commits'}
       >
@@ -50,7 +50,7 @@ export function GraphToolbar() {
         <span>{graphSettings.hideMergeCommits ? 'Merges Hidden' : 'Show Merges'}</span>
       </button>
 
-      <div className="w-px h-5 bg-gray-200" />
+      <div className="w-px h-5 bg-gray-200 dark:bg-gray-600" />
 
       {/* Color by Author Toggle */}
       <button
@@ -58,8 +58,8 @@ export function GraphToolbar() {
         className={`
           flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors
           ${graphSettings.colorByAuthor
-            ? 'bg-purple-100 text-purple-700'
-            : 'text-gray-600 hover:bg-gray-100'}
+            ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300'
+            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}
         `}
         title={graphSettings.colorByAuthor ? 'Color by branch' : 'Color by author'}
       >

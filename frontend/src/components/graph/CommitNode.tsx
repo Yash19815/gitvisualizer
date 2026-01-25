@@ -41,18 +41,18 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
     return (
       <div
         className={`
-          px-2 py-1.5 rounded-md border-2 bg-white shadow-sm
+          px-2 py-1.5 rounded-md border-2 bg-white dark:bg-gray-800 shadow-sm
           w-[200px] transition-all duration-200 cursor-pointer
           hover:shadow-md
-          ${selected ? 'ring-2 ring-blue-500 ring-offset-1' : ''}
-          ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-1 bg-amber-50' : ''}
+          ${selected ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-900' : ''}
+          ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30' : ''}
         `}
         style={{ borderColor: color }}
       >
         <Handle
           type="target"
           position={Position.Top}
-          className="!w-2 !h-2 !border-2 !border-white"
+          className="!w-2 !h-2 !border-2 !border-white dark:!border-gray-800"
           style={{ background: color }}
         />
 
@@ -61,16 +61,16 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
             className="w-2 h-2 rounded-full flex-shrink-0"
             style={{ background: color }}
           />
-          <code className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1 rounded">
+          <code className="text-[10px] font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1 rounded">
             {commit.shortHash}
           </code>
           {commit.refs.length > 0 && (
             <span
               className={`
                 text-[10px] px-1.5 py-0.5 rounded-full truncate max-w-[60px]
-                ${commit.refs[0].type === 'branch' ? 'bg-blue-100 text-blue-700' : ''}
-                ${commit.refs[0].type === 'tag' ? 'bg-green-100 text-green-700' : ''}
-                ${commit.refs[0].type === 'remote' ? 'bg-purple-100 text-purple-700' : ''}
+                ${commit.refs[0].type === 'branch' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : ''}
+                ${commit.refs[0].type === 'tag' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''}
+                ${commit.refs[0].type === 'remote' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ''}
               `}
               title={commit.refs[0].name}
             >
@@ -79,14 +79,14 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
           )}
         </div>
 
-        <p className="text-[11px] font-medium text-gray-900 truncate mt-1" title={commit.message}>
+        <p className="text-[11px] font-medium text-gray-900 dark:text-gray-100 truncate mt-1" title={commit.message}>
           {commit.message}
         </p>
 
         <Handle
           type="source"
           position={Position.Bottom}
-          className="!w-2 !h-2 !border-2 !border-white"
+          className="!w-2 !h-2 !border-2 !border-white dark:!border-gray-800"
           style={{ background: color }}
         />
       </div>
@@ -97,18 +97,18 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
   return (
     <div
       className={`
-        px-4 py-3 rounded-lg border-2 bg-white shadow-md
+        px-4 py-3 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
         w-[280px] transition-all duration-200 cursor-pointer
         hover:shadow-lg
-        ${selected ? 'ring-2 ring-blue-500 ring-offset-2' : ''}
-        ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-2 bg-amber-50' : ''}
+        ${selected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''}
+        ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30' : ''}
       `}
       style={{ borderColor: color }}
     >
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-3 !h-3 !border-2 !border-white"
+        className="!w-3 !h-3 !border-2 !border-white dark:!border-gray-800"
         style={{ background: color }}
       />
 
@@ -120,7 +120,7 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <code className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+            <code className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
               {commit.shortHash}
             </code>
             {commit.refs.slice(0, 3).map(ref => (
@@ -128,9 +128,9 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
                 key={ref.name}
                 className={`
                   text-xs px-2 py-0.5 rounded-full truncate max-w-[100px]
-                  ${ref.type === 'branch' ? 'bg-blue-100 text-blue-700' : ''}
-                  ${ref.type === 'tag' ? 'bg-green-100 text-green-700' : ''}
-                  ${ref.type === 'remote' ? 'bg-purple-100 text-purple-700' : ''}
+                  ${ref.type === 'branch' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : ''}
+                  ${ref.type === 'tag' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''}
+                  ${ref.type === 'remote' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ''}
                   ${ref.isHead ? 'font-bold ring-1 ring-blue-400' : ''}
                 `}
                 title={ref.name}
@@ -139,22 +139,22 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
               </span>
             ))}
             {commit.refs.length > 3 && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-gray-400 dark:text-gray-500">
                 +{commit.refs.length - 3}
               </span>
             )}
           </div>
 
-          <p className="text-sm font-medium text-gray-900 truncate" title={commit.message}>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={commit.message}>
             {commit.message}
           </p>
 
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             {commit.author.name} &middot; {formatRelativeDate(commit.date)}
           </p>
 
           {isHighlighted && !selected && (
-            <p className="text-[10px] text-amber-600 mt-1 font-medium">
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-medium">
               Related commit
             </p>
           )}
@@ -164,7 +164,7 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-3 !h-3 !border-2 !border-white"
+        className="!w-3 !h-3 !border-2 !border-white dark:!border-gray-800"
         style={{ background: color }}
       />
     </div>

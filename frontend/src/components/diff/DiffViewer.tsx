@@ -24,7 +24,7 @@ export function DiffViewer() {
 
   if (!selectedCommit) {
     return (
-      <div className="p-4 text-center text-gray-500 text-sm">
+      <div className="p-4 text-center text-gray-500 dark:text-gray-400 text-sm">
         Select a commit to view changes
       </div>
     );
@@ -34,14 +34,14 @@ export function DiffViewer() {
     return (
       <div className="p-4 flex items-center justify-center">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-        <span className="ml-2 text-sm text-gray-500">Loading changes...</span>
+        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading changes...</span>
       </div>
     );
   }
 
   if (diffError) {
     return (
-      <div className="p-4 text-center text-red-500 text-sm">
+      <div className="p-4 text-center text-red-500 dark:text-red-400 text-sm">
         <div className="text-2xl mb-2">⚠️</div>
         <div>{diffError}</div>
       </div>
@@ -58,18 +58,18 @@ export function DiffViewer() {
     <div className="flex flex-col h-full">
       {/* Summary header */}
       {diffStats && (
-        <div className="px-3 py-2 border-b border-gray-200 bg-gray-50 text-sm">
-          <span className="text-gray-600">{diffStats.files.length} files changed</span>
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
+          <span className="text-gray-600 dark:text-gray-400">{diffStats.files.length} files changed</span>
           {diffStats.totalAdditions > 0 && (
             <>
-              <span className="mx-2 text-gray-400">•</span>
-              <span className="text-green-600">+{diffStats.totalAdditions}</span>
+              <span className="mx-2 text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-green-600 dark:text-green-400">+{diffStats.totalAdditions}</span>
             </>
           )}
           {diffStats.totalDeletions > 0 && (
             <>
-              <span className="mx-2 text-gray-400">•</span>
-              <span className="text-red-600">-{diffStats.totalDeletions}</span>
+              <span className="mx-2 text-gray-400 dark:text-gray-500">•</span>
+              <span className="text-red-600 dark:text-red-400">-{diffStats.totalDeletions}</span>
             </>
           )}
         </div>
@@ -87,7 +87,7 @@ export function DiffViewer() {
 
       {/* Loading indicator for file diff */}
       {isLoadingDiff && (
-        <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+        <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 flex items-center justify-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
         </div>
       )}
