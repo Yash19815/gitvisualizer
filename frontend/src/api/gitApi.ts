@@ -66,9 +66,9 @@ export async function getRepoMetadata(path: string): Promise<RepositoryMetadata>
 // Get paginated commits
 export async function getCommitsPaginated(
   path: string,
-  options: { maxCount?: number; skip?: number; firstParent?: boolean; dateRange?: DateRange } = {}
+  options: { maxCount?: number; skip?: number; firstParent?: boolean; dateRange?: DateRange; branch?: string } = {}
 ): Promise<PaginatedCommits> {
-  const { maxCount = 500, skip = 0, firstParent = false, dateRange } = options;
+  const { maxCount = 500, skip = 0, firstParent = false, dateRange, branch } = options;
   const params = new URLSearchParams({
     maxCount: maxCount.toString(),
     skip: skip.toString(),
@@ -81,6 +81,11 @@ export async function getCommitsPaginated(
   }
   if (dateRange?.until) {
     params.set('until', dateRange.until);
+  }
+
+  // Add branch filter if provided
+  if (branch) {
+    params.set('branch', branch);
   }
 
   const response = await fetch(`${API_BASE}/repository/commits?${params}`, {

@@ -4,7 +4,7 @@ import { SubmoduleList } from './SubmoduleList';
 import { DateRangeFilter } from '../filters/DateRangeFilter';
 
 export function BranchList() {
-  const { repository, searchQuery, setSearchQuery, loadMoreCommits, isLoading, loadMode, submodules } =
+  const { repository, searchQuery, setSearchQuery, loadMoreCommits, isLoading, loadMode, submodules, selectedBranchFilter, setSelectedBranchFilter } =
     useRepositoryStore();
 
   if (!repository) {
@@ -79,6 +79,23 @@ export function BranchList() {
             </span>
           )}
         </div>
+        {selectedBranchFilter && (
+          <div className="mt-2 flex items-center gap-2 text-xs">
+            <span className="text-gray-500">Filtered:</span>
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-medium truncate max-w-[150px]" title={selectedBranchFilter}>
+              {selectedBranchFilter}
+            </span>
+            <button
+              onClick={() => setSelectedBranchFilter(null)}
+              className="text-gray-400 hover:text-gray-600"
+              title="Clear filter"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         {hasMoreCommits && (
           <button
             onClick={loadMoreCommits}
@@ -104,28 +121,53 @@ export function BranchList() {
 
       {/* Local Branches */}
       <div className="mb-4">
-        <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-          Local Branches ({localBranches.length})
-        </h4>
-        <div className="space-y-1">
-          {localBranches.map((branch, index) => (
-            <div
-              key={branch.name}
-              className={`
-                flex items-center gap-2 p-2 rounded-lg text-sm
-                ${branch.isHead ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-50'}
-              `}
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+            Local Branches ({localBranches.length})
+          </h4>
+          {selectedBranchFilter && (
+            <button
+              onClick={() => setSelectedBranchFilter(null)}
+              className="text-xs text-blue-600 hover:text-blue-800"
             >
-              <div
-                className="w-2 h-2 rounded-full"
-                style={{ background: getBranchColor(index) }}
-              />
-              <span className="truncate">{branch.name}</span>
-              {branch.isHead && (
-                <span className="ml-auto text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">HEAD</span>
-              )}
-            </div>
-          ))}
+              Show All
+            </button>
+          )}
+        </div>
+        <div className="space-y-1">
+          {localBranches.map((branch, index) => {
+            const isSelected = selectedBranchFilter === branch.name;
+            return (
+              <button
+                key={branch.name}
+                onClick={() => setSelectedBranchFilter(isSelected ? null : branch.name)}
+                disabled={isLoading}
+                className={`
+                  w-full flex items-center gap-2 p-2 rounded-lg text-sm text-left transition-colors
+                  ${isSelected
+                    ? 'bg-blue-100 text-blue-900 ring-2 ring-blue-500'
+                    : branch.isHead
+                      ? 'bg-blue-50 text-blue-900 hover:bg-blue-100'
+                      : 'text-gray-700 hover:bg-gray-100'}
+                  ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+              >
+                <div
+                  className="w-2 h-2 rounded-full flex-shrink-0"
+                  style={{ background: getBranchColor(index) }}
+                />
+                <span className="truncate flex-1">{branch.name}</span>
+                {isSelected && (
+                  <svg className="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                )}
+                {branch.isHead && !isSelected && (
+                  <span className="text-xs bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded flex-shrink-0">HEAD</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -136,15 +178,31 @@ export function BranchList() {
             Remote Branches ({remoteBranches.length})
           </h4>
           <div className="space-y-1">
-            {remoteBranches.slice(0, 10).map((branch) => (
-              <div
-                key={branch.name}
-                className="flex items-center gap-2 p-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-              >
-                <div className="w-2 h-2 rounded-full bg-purple-400" />
-                <span className="truncate">{branch.name}</span>
-              </div>
-            ))}
+            {remoteBranches.slice(0, 10).map((branch) => {
+              const isSelected = selectedBranchFilter === branch.name;
+              return (
+                <button
+                  key={branch.name}
+                  onClick={() => setSelectedBranchFilter(isSelected ? null : branch.name)}
+                  disabled={isLoading}
+                  className={`
+                    w-full flex items-center gap-2 p-2 rounded-lg text-sm text-left transition-colors
+                    ${isSelected
+                      ? 'bg-purple-100 text-purple-900 ring-2 ring-purple-500'
+                      : 'text-gray-600 hover:bg-gray-100'}
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  `}
+                >
+                  <div className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" />
+                  <span className="truncate flex-1">{branch.name}</span>
+                  {isSelected && (
+                    <svg className="w-4 h-4 text-purple-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
             {remoteBranches.length > 10 && (
               <p className="text-xs text-gray-400 pl-4">
                 +{remoteBranches.length - 10} more

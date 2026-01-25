@@ -113,6 +113,7 @@ repositoryRoutes.post('/repository/commits', validatePath, async (req: Request, 
     const firstParent = req.query.firstParent === 'true';
     const since = req.query.since as string | undefined;
     const until = req.query.until as string | undefined;
+    const branch = req.query.branch as string | undefined;
 
     const isValid = await gitService.validateRepository(path);
     if (!isValid) {
@@ -120,7 +121,7 @@ repositoryRoutes.post('/repository/commits', validatePath, async (req: Request, 
       return;
     }
 
-    const result = await gitService.getCommitsPaginated(path, { maxCount, skip, firstParent, since, until });
+    const result = await gitService.getCommitsPaginated(path, { maxCount, skip, firstParent, since, until, branch });
     res.json({ success: true, data: result });
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

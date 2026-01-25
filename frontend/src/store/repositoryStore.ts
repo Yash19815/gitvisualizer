@@ -35,8 +35,33 @@ import {
 export type LoadMode = 'full' | 'paginated' | 'simplified';
 export type DetailTab = 'details' | 'changes' | 'files';
 
+// Pre-computed adjacency map for O(1) parent/child lookups
+interface AdjacencyMap {
+  children: Map<string, Set<string>>; // parent hash -> child hashes
+  parents: Map<string, string[]>; // child hash -> parent hashes
+}
+
+// Build adjacency map from commits - O(n) once, then O(1) lookups
+function buildAdjacencyMap(commits: Commit[]): AdjacencyMap {
+  const children = new Map<string, Set<string>>();
+  const parents = new Map<string, string[]>();
+
+  for (const commit of commits) {
+    parents.set(commit.hash, commit.parents);
+    for (const parentHash of commit.parents) {
+      if (!children.has(parentHash)) {
+        children.set(parentHash, new Set());
+      }
+      children.get(parentHash)!.add(commit.hash);
+    }
+  }
+
+  return { children, parents };
+}
+
 interface RepositoryState {
   repository: Repository | null;
+  adjacencyMap: AdjacencyMap | null; // Pre-computed for fast highlighting
   isLoading: boolean;
   loadingMessage: string;
   loadingProgress: number; // 0-100, -1 for indeterminate
@@ -79,6 +104,9 @@ interface RepositoryState {
   // Date filter state
   dateFilter: DateRange | null;
 
+  // Branch filter state
+  selectedBranchFilter: string | null;
+
   // Branch comparison state
   branchComparison: BranchComparison | null;
   showBranchComparePanel: boolean;
@@ -86,6 +114,14 @@ interface RepositoryState {
   compareTargetBranch: string | null;
   isLoadingComparison: boolean;
   comparisonError: string | null;
+
+  // Graph settings state
+  graphSettings: {
+    compactMode: boolean;
+    hideMergeCommits: boolean;
+    colorByAuthor: boolean;
+  };
+  highlightedCommits: Set<string>; // Parent and child hashes of selected commit
 
   // Actions
   loadRepo: (path: string) => Promise<void>;
@@ -120,14 +156,23 @@ interface RepositoryState {
   setDateFilter: (dateRange: DateRange | null) => void;
   applyDateFilter: () => Promise<void>;
 
+  // Branch filter actions
+  setSelectedBranchFilter: (branch: string | null) => void;
+
   // Branch comparison actions
   toggleBranchComparePanel: () => void;
   setCompareBranches: (baseBranch: string | null, targetBranch: string | null) => void;
   fetchBranchComparison: () => Promise<void>;
+
+  // Graph settings actions
+  toggleCompactMode: () => void;
+  toggleHideMergeCommits: () => void;
+  toggleColorByAuthor: () => void;
 }
 
 export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   repository: null,
+  adjacencyMap: null,
   isLoading: false,
   loadingMessage: '',
   loadingProgress: -1,
@@ -168,6 +213,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   // Date filter state
   dateFilter: null,
 
+  // Branch filter state
+  selectedBranchFilter: null,
+
   // Branch comparison state
   branchComparison: null,
   showBranchComparePanel: false,
@@ -175,6 +223,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   compareTargetBranch: null,
   isLoadingComparison: false,
   comparisonError: null,
+
+  // Graph settings state
+  graphSettings: {
+    compactMode: false,
+    hideMergeCommits: false,
+    colorByAuthor: false,
+  },
+  highlightedCommits: new Set<string>(),
 
   loadRepo: async (path: string) => {
     // Abort any existing stream
@@ -241,12 +297,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         // Traditional full load for small repos
         set({ loadingMessage: 'Fetching commits and branches...', loadingProgress: 50 });
         const repository = await loadRepository(path);
+        const repoData = {
+          ...repository,
+          loadedCommitCount: repository.commits.length,
+          totalCommitCount: repository.commits.length,
+        };
         set({
-          repository: {
-            ...repository,
-            loadedCommitCount: repository.commits.length,
-            totalCommitCount: repository.commits.length,
-          },
+          repository: repoData,
+          adjacencyMap: buildAdjacencyMap(repository.commits), // Pre-compute for fast highlighting
           isLoading: false,
           loadingProgress: 100,
           loadingMessage: '',
@@ -293,11 +351,17 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
               }));
             },
             onComplete: () => {
+              // Build adjacency map after streaming completes for fast highlighting
+              const finalState = get();
+              const adjacencyMap = finalState.repository?.commits
+                ? buildAdjacencyMap(finalState.repository.commits)
+                : null;
               set({
                 isLoading: false,
                 loadingProgress: 100,
                 loadingMessage: '',
                 abortStream: null,
+                adjacencyMap,
               });
             },
             onError: (error: Error) => {
@@ -342,17 +406,20 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         firstParent: loadMode === 'simplified',
       });
 
-      set((state) => ({
-        repository: state.repository
-          ? {
-              ...state.repository,
-              commits: [...state.repository.commits, ...result.commits],
-              loadedCommitCount: state.repository.commits.length + result.commits.length,
-            }
-          : null,
-        isLoading: false,
-        loadingMessage: '',
-      }));
+      set((state) => {
+        if (!state.repository) return { isLoading: false, loadingMessage: '' };
+        const newCommits = [...state.repository.commits, ...result.commits];
+        return {
+          repository: {
+            ...state.repository,
+            commits: newCommits,
+            loadedCommitCount: newCommits.length,
+          },
+          adjacencyMap: buildAdjacencyMap(newCommits), // Rebuild for new commits
+          isLoading: false,
+          loadingMessage: '',
+        };
+      });
     } catch (error) {
       set({
         error: (error as Error).message,
@@ -404,6 +471,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           loadedCommitCount: repository.commits.length,
           totalCommitCount: repository.commits.length,
         },
+        adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
         loadingMessage: '',
@@ -436,6 +504,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           loadedCommitCount: repository.commits.length,
           totalCommitCount: repository.commits.length,
         },
+        adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
         loadingMessage: '',
@@ -468,6 +537,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           loadedCommitCount: repository.commits.length,
           totalCommitCount: repository.commits.length,
         },
+        adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
         loadingMessage: '',
@@ -482,9 +552,28 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
   },
 
-  setSelectedCommit: (commit) =>
+  setSelectedCommit: (commit) => {
+    const { adjacencyMap } = get();
+
+    // Calculate highlighted commits using pre-computed adjacency map (O(1) lookups)
+    const highlighted = new Set<string>();
+    if (commit && adjacencyMap) {
+      // Add parent hashes - O(p) where p is number of parents (usually 1-2)
+      const parents = adjacencyMap.parents.get(commit.hash);
+      if (parents) {
+        parents.forEach(parentHash => highlighted.add(parentHash));
+      }
+
+      // Add child hashes - O(c) where c is number of children (usually small)
+      const children = adjacencyMap.children.get(commit.hash);
+      if (children) {
+        children.forEach(childHash => highlighted.add(childHash));
+      }
+    }
+
     set({
       selectedCommit: commit,
+      highlightedCommits: highlighted,
       // Clear diff and file state when changing commits
       diffStats: null,
       selectedFileDiff: null,
@@ -494,7 +583,8 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       selectedFile: null,
       fileError: null,
       activeTab: 'details',
-    }),
+    });
+  },
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
@@ -519,6 +609,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
     set({
       repository: null,
+      adjacencyMap: null,
       selectedCommit: null,
       searchQuery: '',
       error: null,
@@ -547,12 +638,20 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       submodules: null,
       // Reset date filter and branch comparison state
       dateFilter: null,
+      selectedBranchFilter: null,
       branchComparison: null,
       showBranchComparePanel: false,
       compareBaseBranch: null,
       compareTargetBranch: null,
       isLoadingComparison: false,
       comparisonError: null,
+      // Reset graph settings (keep defaults)
+      graphSettings: {
+        compactMode: false,
+        hideMergeCommits: false,
+        colorByAuthor: false,
+      },
+      highlightedCommits: new Set<string>(),
     });
   },
 
@@ -709,12 +808,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   applyDateFilter: async () => {
-    const { repository, dateFilter, loadMode } = get();
+    const { repository, dateFilter, loadMode, selectedBranchFilter } = get();
     if (!repository) return;
 
     set({
       isLoading: true,
-      loadingMessage: 'Filtering commits by date...',
+      loadingMessage: 'Filtering commits...',
       loadingProgress: 30,
     });
 
@@ -724,21 +823,74 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         skip: 0,
         firstParent: loadMode === 'simplified',
         dateRange: dateFilter || undefined,
+        branch: selectedBranchFilter || undefined,
       });
 
-      set((state) => ({
-        repository: state.repository
-          ? {
-              ...state.repository,
-              commits: result.commits,
-              loadedCommitCount: result.commits.length,
-              totalCommitCount: result.total,
-            }
-          : null,
+      set((state) => {
+        if (!state.repository) {
+          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+        }
+        return {
+          repository: {
+            ...state.repository,
+            commits: result.commits,
+            loadedCommitCount: result.commits.length,
+            totalCommitCount: result.total,
+          },
+          adjacencyMap: buildAdjacencyMap(result.commits),
+          isLoading: false,
+          loadingProgress: 100,
+          loadingMessage: '',
+        };
+      });
+    } catch (error) {
+      set({
+        error: (error as Error).message,
         isLoading: false,
-        loadingProgress: 100,
+        loadingProgress: -1,
         loadingMessage: '',
-      }));
+      });
+    }
+  },
+
+  // Branch filter actions
+  setSelectedBranchFilter: async (branch: string | null) => {
+    const { repository, dateFilter, loadMode } = get();
+    if (!repository) return;
+
+    set({
+      selectedBranchFilter: branch,
+      isLoading: true,
+      loadingMessage: branch ? `Loading commits from ${branch}...` : 'Loading all commits...',
+      loadingProgress: 30,
+    });
+
+    try {
+      const result = await getCommitsPaginated(repository.path, {
+        maxCount: 1000,
+        skip: 0,
+        firstParent: loadMode === 'simplified',
+        dateRange: dateFilter || undefined,
+        branch: branch || undefined,
+      });
+
+      set((state) => {
+        if (!state.repository) {
+          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+        }
+        return {
+          repository: {
+            ...state.repository,
+            commits: result.commits,
+            loadedCommitCount: result.commits.length,
+            totalCommitCount: result.total,
+          },
+          adjacencyMap: buildAdjacencyMap(result.commits),
+          isLoading: false,
+          loadingProgress: 100,
+          loadingMessage: '',
+        };
+      });
     } catch (error) {
       set({
         error: (error as Error).message,
@@ -794,5 +946,33 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     } catch (error) {
       set({ comparisonError: (error as Error).message, isLoadingComparison: false });
     }
+  },
+
+  // Graph settings actions
+  toggleCompactMode: () => {
+    set((state) => ({
+      graphSettings: {
+        ...state.graphSettings,
+        compactMode: !state.graphSettings.compactMode,
+      },
+    }));
+  },
+
+  toggleHideMergeCommits: () => {
+    set((state) => ({
+      graphSettings: {
+        ...state.graphSettings,
+        hideMergeCommits: !state.graphSettings.hideMergeCommits,
+      },
+    }));
+  },
+
+  toggleColorByAuthor: () => {
+    set((state) => ({
+      graphSettings: {
+        ...state.graphSettings,
+        colorByAuthor: !state.graphSettings.colorByAuthor,
+      },
+    }));
   },
 }));

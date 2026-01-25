@@ -52,6 +52,7 @@ export interface PaginationOptions {
   firstParent?: boolean; // Only follow first parent (simplified view)
   since?: string; // ISO date string for --since filter
   until?: string; // ISO date string for --until filter
+  branch?: string; // Filter commits by specific branch
 }
 
 export interface PaginatedCommits {
@@ -428,7 +429,7 @@ class GitService {
     options: PaginationOptions = {}
   ): Promise<PaginatedCommits> {
     const git = this.getGit(repoPath);
-    const { maxCount = 500, skip = 0, firstParent = false, since, until } = options;
+    const { maxCount = 500, skip = 0, firstParent = false, since, until, branch } = options;
 
     const format = {
       hash: '%H',
@@ -454,14 +455,20 @@ class GitService {
       refs: string;
     };
 
-    // Build log options with optional date filters
+    // Build log options with optional date and branch filters
     const logOptions: Record<string, any> = {
-      '--all': null,
       '--date-order': null,
       maxCount: maxCount + 1,
       '--skip': skip,
       format,
     };
+
+    // Use specific branch or all branches
+    if (branch) {
+      logOptions[branch] = null;
+    } else {
+      logOptions['--all'] = null;
+    }
 
     if (firstParent) {
       logOptions['--first-parent'] = null;
@@ -475,13 +482,14 @@ class GitService {
       logOptions['--until'] = until;
     }
 
-    // Get total count with date filters if specified
+    // Get total count with filters
     const getTotalWithFilters = async (): Promise<number> => {
-      if (!since && !until) {
-        return this.getTotalCommitCount(git);
+      const args = ['rev-list', '--count'];
+      if (branch) {
+        args.push(branch);
+      } else {
+        args.push('--all');
       }
-      // Count commits with date filters using raw git command
-      const args = ['rev-list', '--all', '--count'];
       if (since) args.push(`--since=${since}`);
       if (until) args.push(`--until=${until}`);
       try {

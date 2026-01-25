@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -14,6 +14,7 @@ import {
 import '@xyflow/react/dist/style.css';
 
 import { CommitNode } from './CommitNode';
+import { GraphToolbar } from './GraphToolbar';
 import { UploadZone } from '../inputs/UploadZone';
 import { useRepositoryStore } from '../../store/repositoryStore';
 import { layoutCommitGraph } from '../../utils/layoutEngine';
@@ -21,46 +22,116 @@ import { layoutCommitGraph } from '../../utils/layoutEngine';
 const nodeTypes = { commit: CommitNode } as const;
 
 export function GraphCanvas() {
-  const { repository, selectedCommit, setSelectedCommit, searchQuery } = useRepositoryStore();
+  const {
+    repository,
+    selectedCommit,
+    setSelectedCommit,
+    searchQuery,
+    graphSettings,
+    highlightedCommits,
+  } = useRepositoryStore();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const { fitView } = useReactFlow();
+  const { fitView, setCenter, getZoom } = useReactFlow();
+  const prevSelectedCommitRef = useRef<string | null>(null);
+  const prevFilteredCommitsRef = useRef<typeof filteredCommits>([]);
 
-  // Filter commits based on search
+  // Filter commits based on search and merge commit settings
   const filteredCommits = useMemo(() => {
     if (!repository?.commits) return [];
-    if (!searchQuery.trim()) return repository.commits;
 
-    const query = searchQuery.toLowerCase();
-    return repository.commits.filter(commit =>
-      commit.message.toLowerCase().includes(query) ||
-      commit.hash.toLowerCase().includes(query) ||
-      commit.shortHash.toLowerCase().includes(query) ||
-      commit.author.name.toLowerCase().includes(query) ||
-      commit.refs.some(ref => ref.name.toLowerCase().includes(query))
+    let commits = repository.commits;
+
+    // Filter out merge commits if setting is enabled
+    if (graphSettings.hideMergeCommits) {
+      commits = commits.filter(commit => commit.parents.length <= 1);
+    }
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      commits = commits.filter(commit =>
+        commit.message.toLowerCase().includes(query) ||
+        commit.hash.toLowerCase().includes(query) ||
+        commit.shortHash.toLowerCase().includes(query) ||
+        commit.author.name.toLowerCase().includes(query) ||
+        commit.refs.some(ref => ref.name.toLowerCase().includes(query))
+      );
+    }
+
+    return commits;
+  }, [repository?.commits, searchQuery, graphSettings.hideMergeCommits]);
+
+  // Memoize layout calculation - only recalculate when commits or layout-affecting settings change
+  // CRITICAL: Do NOT include selectedCommit or highlightedCommits here to avoid expensive re-layouts
+  const { layoutedNodes, layoutedEdges } = useMemo(() => {
+    if (filteredCommits.length === 0) {
+      return { layoutedNodes: [], layoutedEdges: [] };
+    }
+
+    const { nodes: layoutedNodes, edges: layoutedEdges } = layoutCommitGraph(
+      filteredCommits,
+      { direction: 'TB', nodeSpacing: 40, rankSpacing: 80 },
+      {
+        compactMode: graphSettings.compactMode,
+        colorByAuthor: graphSettings.colorByAuthor,
+        highlightedCommits: new Set<string>(), // Empty set - highlighting applied separately
+      }
     );
-  }, [repository?.commits, searchQuery]);
 
-  // Layout commits when repository or search changes
+    return { layoutedNodes, layoutedEdges };
+  }, [filteredCommits, graphSettings.compactMode, graphSettings.colorByAuthor]);
+
+  // Apply selection and highlighting WITHOUT re-running layout
   useEffect(() => {
-    if (filteredCommits.length > 0) {
-      const { nodes: layoutedNodes, edges: layoutedEdges } = layoutCommitGraph(filteredCommits);
-
-      // Mark selected node
-      const nodesWithSelection = layoutedNodes.map(node => ({
+    if (layoutedNodes.length > 0) {
+      // Update nodes with selection and highlighting (O(n) but no layout recalc)
+      const nodesWithState = layoutedNodes.map(node => ({
         ...node,
         selected: selectedCommit?.hash === node.id,
+        data: {
+          ...node.data,
+          isHighlighted: highlightedCommits.has(node.id),
+        },
       }));
 
-      setNodes(nodesWithSelection as Node[]);
+      setNodes(nodesWithState as Node[]);
       setEdges(layoutedEdges as Edge[]);
 
-      setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
+      // Fit view only when commits change, not on selection
+      const commitsChanged = prevFilteredCommitsRef.current !== filteredCommits;
+      if (commitsChanged) {
+        prevFilteredCommitsRef.current = filteredCommits;
+        setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
+      }
     } else {
       setNodes([]);
       setEdges([]);
     }
-  }, [filteredCommits, selectedCommit, setNodes, setEdges, fitView]);
+  }, [layoutedNodes, layoutedEdges, selectedCommit, highlightedCommits, filteredCommits, setNodes, setEdges, fitView]);
+
+  // Zoom to selected commit when it changes
+  useEffect(() => {
+    if (selectedCommit && prevSelectedCommitRef.current !== selectedCommit.hash) {
+      const selectedNode = nodes.find(node => node.id === selectedCommit.hash);
+      if (selectedNode) {
+        // Calculate center position of the node
+        const nodeWidth = graphSettings.compactMode ? 200 : 280;
+        const nodeHeight = graphSettings.compactMode ? 60 : 100;
+        const centerX = selectedNode.position.x + nodeWidth / 2;
+        const centerY = selectedNode.position.y + nodeHeight / 2;
+
+        // Zoom to the selected commit with a nice zoom level
+        const currentZoom = getZoom();
+        const targetZoom = Math.max(currentZoom, 1.2); // Zoom in but not too much
+
+        setTimeout(() => {
+          setCenter(centerX, centerY, { zoom: targetZoom, duration: 500 });
+        }, 50);
+      }
+    }
+    prevSelectedCommitRef.current = selectedCommit?.hash || null;
+  }, [selectedCommit, nodes, graphSettings.compactMode, setCenter, getZoom]);
 
   // Handle node click
   const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
@@ -93,7 +164,8 @@ export function GraphCanvas() {
   }
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full relative">
+      <GraphToolbar />
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -109,6 +181,8 @@ export function GraphCanvas() {
           animated: false,
         }}
         proOptions={{ hideAttribution: true }}
+        // Performance: Only render nodes/edges visible in viewport
+        onlyRenderVisibleElements
       >
         <Controls position="bottom-right" />
         <MiniMap
