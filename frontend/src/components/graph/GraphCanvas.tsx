@@ -226,9 +226,16 @@ export function GraphCanvas() {
         <Controls position="bottom-right" />
         <MiniMap
           nodeColor={(node) => (node.data as { color?: string })?.color || '#888'}
-          maskColor={darkMode ? "rgba(0, 0, 0, 0.3)" : "rgba(0, 0, 0, 0.1)"}
-          style={{ backgroundColor: darkMode ? '#1f2937' : undefined }}
+          maskColor={darkMode ? "rgba(0, 0, 0, 0.4)" : "rgba(0, 0, 0, 0.15)"}
+          style={{
+            backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
+            borderRadius: '8px',
+            border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+          }}
           position="bottom-left"
+          pannable
+          zoomable
         />
         <Background variant={BackgroundVariant.Dots} gap={20} color={darkMode ? '#374151' : '#e5e7eb'} />
       </ReactFlow>
