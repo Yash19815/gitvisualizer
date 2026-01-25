@@ -1,6 +1,10 @@
 import { useRepositoryStore } from '../../store/repositoryStore';
 
-export function SubmoduleDetails() {
+interface SubmoduleDetailsProps {
+  width?: number;
+}
+
+export function SubmoduleDetails({ width = 320 }: SubmoduleDetailsProps) {
   const {
     selectedSubmodule,
     setSelectedSubmodule,
@@ -22,9 +26,12 @@ export function SubmoduleDetails() {
   };
 
   return (
-    <div className="bg-white border-l border-gray-200 w-80 flex flex-col h-full overflow-hidden">
+    <div
+      style={{ width }}
+      className="bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-800 flex flex-col h-full overflow-hidden flex-shrink-0"
+    >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <svg className="w-5 h-5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
@@ -34,11 +41,11 @@ export function SubmoduleDetails() {
               d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
             />
           </svg>
-          <h2 className="font-semibold text-gray-900">Submodule</h2>
+          <h2 className="font-semibold text-gray-900 dark:text-gray-100">Submodule</h2>
         </div>
         <button
           onClick={handleClose}
-          className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+          className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
           aria-label="Close"
         >
           <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -51,14 +58,14 @@ export function SubmoduleDetails() {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Name */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Name</label>
-          <p className="mt-1 text-sm font-medium text-gray-900">{selectedSubmodule.name}</p>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Name</label>
+          <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{selectedSubmodule.name}</p>
         </div>
 
         {/* Path */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Path</label>
-          <p className="mt-1 text-sm font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded">
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Path</label>
+          <p className="mt-1 text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded">
             {selectedSubmodule.path}
           </p>
         </div>
@@ -66,8 +73,8 @@ export function SubmoduleDetails() {
         {/* URL */}
         {selectedSubmodule.url && (
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Remote URL</label>
-            <p className="mt-1 text-sm font-mono text-gray-700 bg-gray-50 px-2 py-1 rounded break-all">
+            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Remote URL</label>
+            <p className="mt-1 text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded break-all">
               {selectedSubmodule.url}
             </p>
           </div>
@@ -75,14 +82,14 @@ export function SubmoduleDetails() {
 
         {/* Current Commit */}
         <div>
-          <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">Current Commit</label>
+          <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Current Commit</label>
           <div className="mt-1 flex items-center gap-2">
-            <code className="text-sm font-mono text-gray-700 bg-gray-100 px-2 py-1 rounded">
+            <code className="text-sm font-mono text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
               {selectedSubmodule.currentCommit.substring(0, 7)}
             </code>
             <button
               onClick={() => navigator.clipboard.writeText(selectedSubmodule.currentCommit)}
-              className="p-1 hover:bg-gray-100 rounded transition-colors"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded transition-colors"
               title="Copy full hash"
             >
               <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -136,7 +143,7 @@ export function SubmoduleDetails() {
       </div>
 
       {/* Actions */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <button
           onClick={handleNavigate}
           disabled={!selectedSubmodule.initialized || isLoadingSubmodule}
