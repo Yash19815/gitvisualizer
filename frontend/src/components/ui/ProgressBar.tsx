@@ -1,7 +1,8 @@
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 export function ProgressBar() {
-  const { isLoading, loadingMessage, loadingProgress } = useRepositoryStore();
+  const { isLoading, loadingMessage, loadingProgress, cancelClone } =
+    useRepositoryStore();
 
   if (!isLoading) return null;
 
@@ -25,14 +26,35 @@ export function ProgressBar() {
       {loadingMessage && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2">
           <div className="bg-white shadow-lg rounded-lg px-4 py-2 flex items-center gap-3 border">
-            <svg className="animate-spin w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg
+              className="animate-spin w-4 h-4 text-blue-500"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
             </svg>
             <span className="text-sm text-gray-700">{loadingMessage}</span>
             {!isIndeterminate && (
               <span className="text-xs text-gray-400">{loadingProgress}%</span>
             )}
+            <button
+              onClick={cancelClone}
+              className="ml-2 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 rounded transition-colors"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}

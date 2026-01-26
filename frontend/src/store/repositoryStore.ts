@@ -154,6 +154,9 @@ interface RepositoryState {
   // Branch filter state
   selectedBranchFilter: string | null;
 
+  // Clone cancellation state
+  currentRequestId: number | null;
+
   // Tag filter state
   selectedTagFilter: string | null;
 
@@ -195,6 +198,7 @@ interface RepositoryState {
   setSearchQuery: (query: string) => void;
   dismissLargeRepoWarning: () => void;
   confirmLoadLargeRepo: (mode: LoadMode) => void;
+  cancelClone: () => void;
   reset: () => void;
 
   // Diff and file tree actions
@@ -279,7 +283,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   pendingPath: null,
   loadMode: "full",
   abortStream: null,
+
   isTemporaryRepo: false,
+  currentRequestId: null,
 
   // Diff viewer state
   activeTab: "details",
@@ -598,8 +604,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     // Use provided token, or fall back to stored token
     const authToken = token || cloneToken || undefined;
 
+    // Generate distinct request ID
+    const requestId = Date.now();
+
     set({
       isLoading: true,
+      currentRequestId: requestId,
       error: null,
       selectedCommit: null,
       loadingMessage: shallow
@@ -618,6 +628,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         shallow,
         token: authToken,
       });
+
+      // Check for cancellation or race condition
+      if (get().currentRequestId !== requestId) {
+        // User cancelled or started another request - cleanup and abort
+        await cleanupRepository(repository.path);
+        return;
+      }
 
       // Check if it's a large repo after cloning
       const stats = await getRepoStats(repository.path);
@@ -830,6 +847,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     if (pendingPath) {
       get().loadRepoWithMode(pendingPath, mode);
     }
+  },
+
+  cancelClone: () => {
+    set({
+      isLoading: false,
+      loadingMessage: "",
+      currentRequestId: null,
+    });
   },
 
   reset: () => {
