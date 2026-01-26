@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 import type {
   Repository,
   Commit,
@@ -20,7 +20,7 @@ import type {
   FileBusFactor,
   CommitPatterns,
   BranchLifespan,
-} from '../types';
+} from "../types";
 import {
   loadRepository,
   uploadRepository,
@@ -43,15 +43,15 @@ import {
   getBusFactor,
   getCommitPatterns,
   getBranchLifespans,
-} from '../api/gitApi';
+} from "../api/gitApi";
 import {
   setGitHubToken as setGitHubTokenApi,
   getGitHubRepoInfo,
   getCommitGitHubInfo,
-} from '../api/githubApi';
+} from "../api/githubApi";
 
-export type LoadMode = 'full' | 'paginated' | 'simplified';
-export type DetailTab = 'details' | 'changes' | 'files' | 'github';
+export type LoadMode = "full" | "paginated" | "simplified";
+export type DetailTab = "details" | "changes" | "files" | "github";
 
 // Pre-computed adjacency map for O(1) parent/child lookups
 interface AdjacencyMap {
@@ -128,6 +128,10 @@ interface RepositoryState {
   // Dark mode state
   darkMode: boolean;
 
+  // Mobile panel state
+  leftPanelOpen: boolean;
+  rightPanelOpen: boolean;
+
   // Submodule state
   submodules: Submodule[] | null;
   selectedSubmodule: Submodule | null;
@@ -177,7 +181,10 @@ interface RepositoryState {
   loadRepo: (path: string) => Promise<void>;
   loadRepoWithMode: (path: string, mode: LoadMode) => Promise<void>;
   loadMoreCommits: () => Promise<void>;
-  cloneRepo: (url: string, options?: { shallow?: boolean; token?: string }) => Promise<void>;
+  cloneRepo: (
+    url: string,
+    options?: { shallow?: boolean; token?: string },
+  ) => Promise<void>;
   dismissAuthModal: () => void;
   retryCloneWithToken: (token: string, saveToken?: boolean) => Promise<void>;
   uploadRepo: (file: File) => Promise<void>;
@@ -216,6 +223,11 @@ interface RepositoryState {
   // Dark mode actions
   toggleDarkMode: () => void;
 
+  // Mobile panel actions
+  toggleLeftPanel: () => void;
+  toggleRightPanel: () => void;
+  closeAllPanels: () => void;
+
   // Date filter actions
   setDateFilter: (dateRange: DateRange | null) => void;
   applyDateFilter: () => Promise<void>;
@@ -228,7 +240,10 @@ interface RepositoryState {
 
   // Branch comparison actions
   toggleBranchComparePanel: () => void;
-  setCompareBranches: (baseBranch: string | null, targetBranch: string | null) => void;
+  setCompareBranches: (
+    baseBranch: string | null,
+    targetBranch: string | null,
+  ) => void;
   fetchBranchComparison: () => Promise<void>;
 
   // Graph settings actions
@@ -252,19 +267,19 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   repository: null,
   adjacencyMap: null,
   isLoading: false,
-  loadingMessage: '',
+  loadingMessage: "",
   loadingProgress: -1,
   error: null,
   selectedCommit: null,
-  searchQuery: '',
+  searchQuery: "",
   repoStats: null,
   showLargeRepoWarning: false,
   pendingPath: null,
-  loadMode: 'full',
+  loadMode: "full",
   abortStream: null,
 
   // Diff viewer state
-  activeTab: 'details',
+  activeTab: "details",
   diffStats: null,
   selectedFileDiff: null,
   isLoadingDiff: false,
@@ -295,7 +310,11 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   selectedAuthors: [],
 
   // Dark mode state
-  darkMode: localStorage.getItem('darkMode') === 'true',
+  darkMode: localStorage.getItem("darkMode") === "false" ? false : true,
+
+  // Mobile panel state
+  leftPanelOpen: false,
+  rightPanelOpen: false,
 
   // Submodule state
   submodules: null,
@@ -306,7 +325,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
   // GitHub integration state
   githubRepoInfo: null,
-  githubToken: localStorage.getItem('github_token'),
+  githubToken: localStorage.getItem("github_token"),
   commitGitHubInfo: new Map<string, CommitGitHubInfo>(),
   isLoadingGitHubInfo: false,
   githubError: null,
@@ -340,7 +359,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   showAuthModal: false,
   pendingCloneUrl: null,
   pendingCloneShallow: true,
-  cloneToken: localStorage.getItem('clone_token'),
+  cloneToken: localStorage.getItem("clone_token"),
 
   loadRepo: async (path: string) => {
     // Abort any existing stream
@@ -354,7 +373,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       isLoading: true,
       error: null,
       selectedCommit: null,
-      loadingMessage: 'Checking repository size...',
+      loadingMessage: "Checking repository size...",
       loadingProgress: 10,
     });
 
@@ -370,19 +389,19 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           showLargeRepoWarning: true,
           pendingPath: path,
           loadingProgress: -1,
-          loadingMessage: '',
+          loadingMessage: "",
         });
         return;
       }
 
       // Small repo - load normally
-      await get().loadRepoWithMode(path, 'full');
+      await get().loadRepoWithMode(path, "full");
     } catch (error) {
       set({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -403,9 +422,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     });
 
     try {
-      if (mode === 'full') {
+      if (mode === "full") {
         // Traditional full load for small repos
-        set({ loadingMessage: 'Fetching commits and branches...', loadingProgress: 50 });
+        set({
+          loadingMessage: "Fetching commits and branches...",
+          loadingProgress: 50,
+        });
         const repository = await loadRepository(path);
         const repoData = {
           ...repository,
@@ -417,14 +439,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           adjacencyMap: buildAdjacencyMap(repository.commits), // Pre-compute for fast highlighting
           isLoading: false,
           loadingProgress: 100,
-          loadingMessage: '',
+          loadingMessage: "",
         });
       } else {
         // Streaming load for large repos
-        set({ loadingMessage: 'Starting stream...', loadingProgress: 5 });
+        set({ loadingMessage: "Starting stream...", loadingProgress: 5 });
 
         const allCommits: Commit[] = [];
-        const firstParent = mode === 'simplified';
+        const firstParent = mode === "simplified";
 
         const abort = streamRepository(
           path,
@@ -442,7 +464,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
                   loadedCommitCount: 0,
                   totalCommitCount: metadata.stats.totalCommits,
                 },
-                loadingMessage: 'Loading commits...',
+                loadingMessage: "Loading commits...",
               });
             },
             onCommits: (commits: Commit[], progress: number, total: number) => {
@@ -469,7 +491,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
               set({
                 isLoading: false,
                 loadingProgress: 100,
-                loadingMessage: '',
+                loadingMessage: "",
                 abortStream: null,
                 adjacencyMap,
               });
@@ -479,12 +501,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
                 error: error.message,
                 isLoading: false,
                 loadingProgress: -1,
-                loadingMessage: '',
+                loadingMessage: "",
                 abortStream: null,
               });
             },
           },
-          { chunkSize: 1000, firstParent }
+          { chunkSize: 1000, firstParent },
         );
 
         set({ abortStream: abort });
@@ -494,7 +516,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -507,17 +529,17 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     const total = repository.totalCommitCount || 0;
     if (currentCount >= total) return;
 
-    set({ isLoading: true, loadingMessage: 'Loading more commits...' });
+    set({ isLoading: true, loadingMessage: "Loading more commits..." });
 
     try {
       const result = await getCommitsPaginated(repository.path, {
         skip: currentCount,
         maxCount: 1000,
-        firstParent: loadMode === 'simplified',
+        firstParent: loadMode === "simplified",
       });
 
       set((state) => {
-        if (!state.repository) return { isLoading: false, loadingMessage: '' };
+        if (!state.repository) return { isLoading: false, loadingMessage: "" };
         const newCommits = [...state.repository.commits, ...result.commits];
         return {
           repository: {
@@ -527,19 +549,22 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           },
           adjacencyMap: buildAdjacencyMap(newCommits), // Rebuild for new commits
           isLoading: false,
-          loadingMessage: '',
+          loadingMessage: "",
         };
       });
     } catch (error) {
       set({
         error: (error as Error).message,
         isLoading: false,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
 
-  cloneRepo: async (url: string, options: { shallow?: boolean; token?: string } = {}) => {
+  cloneRepo: async (
+    url: string,
+    options: { shallow?: boolean; token?: string } = {},
+  ) => {
     const { shallow = true, token } = options;
     const { cloneToken } = get();
 
@@ -550,17 +575,22 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       isLoading: true,
       error: null,
       selectedCommit: null,
-      loadingMessage: shallow ? 'Cloning repository (shallow)...' : 'Cloning full repository...',
+      loadingMessage: shallow
+        ? "Cloning repository (shallow)..."
+        : "Cloning full repository...",
       loadingProgress: -1,
     });
     try {
       set({
         loadingMessage: shallow
-          ? 'Downloading recent history...'
-          : 'Downloading full history (this may take a while)...',
+          ? "Downloading recent history..."
+          : "Downloading full history (this may take a while)...",
         loadingProgress: 30,
       });
-      const repository = await cloneRepository(url, { shallow, token: authToken });
+      const repository = await cloneRepository(url, {
+        shallow,
+        token: authToken,
+      });
 
       // Check if it's a large repo after cloning
       const stats = await getRepoStats(repository.path);
@@ -573,12 +603,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           showLargeRepoWarning: true,
           pendingPath: repository.path,
           loadingProgress: -1,
-          loadingMessage: '',
+          loadingMessage: "",
         });
         return;
       }
 
-      set({ loadingProgress: 90, loadingMessage: 'Building graph...' });
+      set({ loadingProgress: 90, loadingMessage: "Building graph..." });
       set({
         repository: {
           ...repository,
@@ -588,7 +618,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     } catch (error) {
       // Check if this is an auth error
@@ -596,7 +626,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         set({
           isLoading: false,
           loadingProgress: -1,
-          loadingMessage: '',
+          loadingMessage: "",
           showAuthModal: true,
           pendingCloneUrl: url,
           pendingCloneShallow: shallow,
@@ -609,7 +639,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -629,7 +659,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
     // Save token if requested
     if (saveToken) {
-      localStorage.setItem('clone_token', token);
+      localStorage.setItem("clone_token", token);
       set({ cloneToken: token });
     }
 
@@ -651,13 +681,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       isLoading: true,
       error: null,
       selectedCommit: null,
-      loadingMessage: 'Uploading ZIP...',
+      loadingMessage: "Uploading ZIP...",
       loadingProgress: 20,
     });
     try {
-      set({ loadingMessage: 'Extracting repository...', loadingProgress: 50 });
+      set({ loadingMessage: "Extracting repository...", loadingProgress: 50 });
       const repository = await uploadRepository(file);
-      set({ loadingProgress: 90, loadingMessage: 'Building graph...' });
+      set({ loadingProgress: 90, loadingMessage: "Building graph..." });
       set({
         repository: {
           ...repository,
@@ -667,14 +697,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     } catch (error) {
       set({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -684,13 +714,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       isLoading: true,
       error: null,
       selectedCommit: null,
-      loadingMessage: 'Uploading files...',
+      loadingMessage: "Uploading files...",
       loadingProgress: 20,
     });
     try {
-      set({ loadingMessage: 'Processing repository...', loadingProgress: 50 });
+      set({ loadingMessage: "Processing repository...", loadingProgress: 50 });
       const repository = await uploadFolder(files);
-      set({ loadingProgress: 90, loadingMessage: 'Building graph...' });
+      set({ loadingProgress: 90, loadingMessage: "Building graph..." });
       set({
         repository: {
           ...repository,
@@ -700,14 +730,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         adjacencyMap: buildAdjacencyMap(repository.commits),
         isLoading: false,
         loadingProgress: 100,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     } catch (error) {
       set({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -721,13 +751,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       // Add parent hashes - O(p) where p is number of parents (usually 1-2)
       const parents = adjacencyMap.parents.get(commit.hash);
       if (parents) {
-        parents.forEach(parentHash => highlighted.add(parentHash));
+        parents.forEach((parentHash) => highlighted.add(parentHash));
       }
 
       // Add child hashes - O(c) where c is number of children (usually small)
       const children = adjacencyMap.children.get(commit.hash);
       if (children) {
-        children.forEach(childHash => highlighted.add(childHash));
+        children.forEach((childHash) => highlighted.add(childHash));
       }
     }
 
@@ -742,7 +772,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       expandedPaths: new Set<string>(),
       selectedFile: null,
       fileError: null,
-      activeTab: 'details',
+      activeTab: "details",
     });
   },
 
@@ -771,14 +801,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       repository: null,
       adjacencyMap: null,
       selectedCommit: null,
-      searchQuery: '',
+      searchQuery: "",
       error: null,
       repoStats: null,
       showLargeRepoWarning: false,
       pendingPath: null,
       abortStream: null,
       // Reset diff and file tree state
-      activeTab: 'details',
+      activeTab: "details",
       diffStats: null,
       selectedFileDiff: null,
       isLoadingDiff: false,
@@ -830,10 +860,18 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     const { repository, selectedCommit } = get();
     if (!repository || !selectedCommit) return;
 
-    set({ isLoadingDiff: true, diffError: null, diffStats: null, selectedFileDiff: null });
+    set({
+      isLoadingDiff: true,
+      diffError: null,
+      diffStats: null,
+      selectedFileDiff: null,
+    });
 
     try {
-      const stats = await getCommitDiffStats(repository.path, selectedCommit.hash);
+      const stats = await getCommitDiffStats(
+        repository.path,
+        selectedCommit.hash,
+      );
       set({ diffStats: stats, isLoadingDiff: false });
     } catch (error) {
       set({ diffError: (error as Error).message, isLoadingDiff: false });
@@ -847,7 +885,11 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     set({ isLoadingDiff: true, diffError: null });
 
     try {
-      const diff = await getCommitFileDiff(repository.path, selectedCommit.hash, filePath);
+      const diff = await getCommitFileDiff(
+        repository.path,
+        selectedCommit.hash,
+        filePath,
+      );
       set({ selectedFileDiff: diff, isLoadingDiff: false });
     } catch (error) {
       set({ diffError: (error as Error).message, isLoadingDiff: false });
@@ -860,7 +902,12 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     const { repository, selectedCommit } = get();
     if (!repository || !selectedCommit) return;
 
-    set({ isLoadingTree: true, fileError: null, fileTree: [], expandedPaths: new Set() });
+    set({
+      isLoadingTree: true,
+      fileError: null,
+      fileTree: [],
+      expandedPaths: new Set(),
+    });
 
     try {
       const tree = await getFileTree(repository.path, selectedCommit.hash);
@@ -875,17 +922,23 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     if (!repository || !selectedCommit) return;
 
     try {
-      const children = await getFileTree(repository.path, selectedCommit.hash, treePath);
+      const children = await getFileTree(
+        repository.path,
+        selectedCommit.hash,
+        treePath,
+      );
       // Merge children into the tree (they'll be rendered based on expandedPaths)
       // Store children with their parent path prefix for lookup
-      const newEntries = children.map(entry => ({
+      const newEntries = children.map((entry) => ({
         ...entry,
         path: entry.path, // path already includes full path from backend
       }));
 
       // Add new entries that don't already exist
-      const existingPaths = new Set(fileTree.map(e => e.path));
-      const uniqueNewEntries = newEntries.filter(e => !existingPaths.has(e.path));
+      const existingPaths = new Set(fileTree.map((e) => e.path));
+      const uniqueNewEntries = newEntries.filter(
+        (e) => !existingPaths.has(e.path),
+      );
 
       set({ fileTree: [...fileTree, ...uniqueNewEntries] });
     } catch (error) {
@@ -915,7 +968,11 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     set({ isLoadingFile: true, fileError: null, selectedFile: null });
 
     try {
-      const content = await getFileContent(repository.path, selectedCommit.hash, filePath);
+      const content = await getFileContent(
+        repository.path,
+        selectedCommit.hash,
+        filePath,
+      );
       set({ selectedFile: content, isLoadingFile: false });
     } catch (error) {
       set({ fileError: (error as Error).message, isLoadingFile: false });
@@ -1027,7 +1084,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     set({
       selectedAuthors: authors,
       isLoading: true,
-      loadingMessage: authors.length > 0 ? 'Filtering by author...' : 'Loading all commits...',
+      loadingMessage:
+        authors.length > 0
+          ? "Filtering by author..."
+          : "Loading all commits...",
       loadingProgress: 30,
     });
 
@@ -1035,7 +1095,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const result = await getCommitsPaginated(repository.path, {
         maxCount: 1000,
         skip: 0,
-        firstParent: loadMode === 'simplified',
+        firstParent: loadMode === "simplified",
         dateRange: dateFilter || undefined,
         branch: selectedBranchFilter || undefined,
         authors: authors.length > 0 ? authors : undefined,
@@ -1043,7 +1103,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
       set((state) => {
         if (!state.repository) {
-          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+          return { isLoading: false, loadingProgress: 100, loadingMessage: "" };
         }
         return {
           repository: {
@@ -1055,7 +1115,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           adjacencyMap: buildAdjacencyMap(result.commits),
           isLoading: false,
           loadingProgress: 100,
-          loadingMessage: '',
+          loadingMessage: "",
         };
       });
     } catch (error) {
@@ -1063,7 +1123,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -1071,9 +1131,22 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   // Dark mode actions
   toggleDarkMode: () => {
     const newDarkMode = !get().darkMode;
-    localStorage.setItem('darkMode', String(newDarkMode));
-    document.documentElement.classList.toggle('dark', newDarkMode);
+    localStorage.setItem("darkMode", String(newDarkMode));
+    document.documentElement.classList.toggle("dark", newDarkMode);
     set({ darkMode: newDarkMode });
+  },
+
+  // Mobile panel actions
+  toggleLeftPanel: () => {
+    set({ leftPanelOpen: !get().leftPanelOpen });
+  },
+
+  toggleRightPanel: () => {
+    set({ rightPanelOpen: !get().rightPanelOpen });
+  },
+
+  closeAllPanels: () => {
+    set({ leftPanelOpen: false, rightPanelOpen: false });
   },
 
   // Date filter actions
@@ -1082,12 +1155,18 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
   },
 
   applyDateFilter: async () => {
-    const { repository, dateFilter, loadMode, selectedBranchFilter, selectedAuthors } = get();
+    const {
+      repository,
+      dateFilter,
+      loadMode,
+      selectedBranchFilter,
+      selectedAuthors,
+    } = get();
     if (!repository) return;
 
     set({
       isLoading: true,
-      loadingMessage: 'Filtering commits...',
+      loadingMessage: "Filtering commits...",
       loadingProgress: 30,
     });
 
@@ -1095,7 +1174,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const result = await getCommitsPaginated(repository.path, {
         maxCount: 1000,
         skip: 0,
-        firstParent: loadMode === 'simplified',
+        firstParent: loadMode === "simplified",
         dateRange: dateFilter || undefined,
         branch: selectedBranchFilter || undefined,
         authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
@@ -1103,7 +1182,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
       set((state) => {
         if (!state.repository) {
-          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+          return { isLoading: false, loadingProgress: 100, loadingMessage: "" };
         }
         return {
           repository: {
@@ -1115,7 +1194,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           adjacencyMap: buildAdjacencyMap(result.commits),
           isLoading: false,
           loadingProgress: 100,
-          loadingMessage: '',
+          loadingMessage: "",
         };
       });
     } catch (error) {
@@ -1123,7 +1202,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -1137,7 +1216,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       selectedBranchFilter: branch,
       selectedTagFilter: null, // Clear tag filter when branch filter is set
       isLoading: true,
-      loadingMessage: branch ? `Loading commits from ${branch}...` : 'Loading all commits...',
+      loadingMessage: branch
+        ? `Loading commits from ${branch}...`
+        : "Loading all commits...",
       loadingProgress: 30,
     });
 
@@ -1145,7 +1226,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const result = await getCommitsPaginated(repository.path, {
         maxCount: 1000,
         skip: 0,
-        firstParent: loadMode === 'simplified',
+        firstParent: loadMode === "simplified",
         dateRange: dateFilter || undefined,
         branch: branch || undefined,
         authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
@@ -1153,7 +1234,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
       set((state) => {
         if (!state.repository) {
-          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+          return { isLoading: false, loadingProgress: 100, loadingMessage: "" };
         }
         return {
           repository: {
@@ -1165,7 +1246,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           adjacencyMap: buildAdjacencyMap(result.commits),
           isLoading: false,
           loadingProgress: 100,
-          loadingMessage: '',
+          loadingMessage: "",
         };
       });
     } catch (error) {
@@ -1173,7 +1254,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -1187,7 +1268,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       selectedTagFilter: tag,
       selectedBranchFilter: null, // Clear branch filter when tag filter is set
       isLoading: true,
-      loadingMessage: tag ? `Loading commits from tag ${tag}...` : 'Loading all commits...',
+      loadingMessage: tag
+        ? `Loading commits from tag ${tag}...`
+        : "Loading all commits...",
       loadingProgress: 30,
     });
 
@@ -1195,7 +1278,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const result = await getCommitsPaginated(repository.path, {
         maxCount: 1000,
         skip: 0,
-        firstParent: loadMode === 'simplified',
+        firstParent: loadMode === "simplified",
         dateRange: dateFilter || undefined,
         branch: tag || undefined, // Tags work like branches in git log
         authors: selectedAuthors.length > 0 ? selectedAuthors : undefined,
@@ -1203,7 +1286,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
       set((state) => {
         if (!state.repository) {
-          return { isLoading: false, loadingProgress: 100, loadingMessage: '' };
+          return { isLoading: false, loadingProgress: 100, loadingMessage: "" };
         }
         return {
           repository: {
@@ -1215,7 +1298,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
           adjacencyMap: buildAdjacencyMap(result.commits),
           isLoading: false,
           loadingProgress: 100,
-          loadingMessage: '',
+          loadingMessage: "",
         };
       });
     } catch (error) {
@@ -1223,7 +1306,7 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         error: (error as Error).message,
         isLoading: false,
         loadingProgress: -1,
-        loadingMessage: '',
+        loadingMessage: "",
       });
     }
   },
@@ -1237,8 +1320,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     // Set default branches when opening
     if (newShow && repository) {
       const currentBranch = repository.currentBranch;
-      const localBranches = repository.branches.filter(b => !b.isRemote);
-      const otherBranch = localBranches.find(b => b.name !== currentBranch)?.name || null;
+      const localBranches = repository.branches.filter((b) => !b.isRemote);
+      const otherBranch =
+        localBranches.find((b) => b.name !== currentBranch)?.name || null;
       set({
         compareBaseBranch: currentBranch,
         compareTargetBranch: otherBranch,
@@ -1248,7 +1332,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     }
   },
 
-  setCompareBranches: (baseBranch: string | null, targetBranch: string | null) => {
+  setCompareBranches: (
+    baseBranch: string | null,
+    targetBranch: string | null,
+  ) => {
     set({
       compareBaseBranch: baseBranch,
       compareTargetBranch: targetBranch,
@@ -1267,11 +1354,14 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const comparison = await compareBranches(
         repository.path,
         compareBaseBranch,
-        compareTargetBranch
+        compareTargetBranch,
       );
       set({ branchComparison: comparison, isLoadingComparison: false });
     } catch (error) {
-      set({ comparisonError: (error as Error).message, isLoadingComparison: false });
+      set({
+        comparisonError: (error as Error).message,
+        isLoadingComparison: false,
+      });
     }
   },
 
@@ -1308,9 +1398,9 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
     try {
       await setGitHubTokenApi(token);
       if (token) {
-        localStorage.setItem('github_token', token);
+        localStorage.setItem("github_token", token);
       } else {
-        localStorage.removeItem('github_token');
+        localStorage.removeItem("github_token");
       }
       set({ githubToken: token, githubError: null });
       // Refresh repo info after setting token
@@ -1337,13 +1427,13 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       const repoInfo = await getGitHubRepoInfo(repository.path);
       // If null is returned, set isGitHub: false so UI doesn't get stuck
       set({
-        githubRepoInfo: repoInfo || { isGitHub: false, owner: '', repo: '' },
+        githubRepoInfo: repoInfo || { isGitHub: false, owner: "", repo: "" },
         githubError: null,
       });
     } catch (error) {
       // Set isGitHub: false on error so UI can show proper state instead of loading forever
       set({
-        githubRepoInfo: { isGitHub: false, owner: '', repo: '' },
+        githubRepoInfo: { isGitHub: false, owner: "", repo: "" },
         githubError: (error as Error).message,
       });
     }
@@ -1366,7 +1456,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         return { commitGitHubInfo: newMap, isLoadingGitHubInfo: false };
       });
     } catch (error) {
-      set({ githubError: (error as Error).message, isLoadingGitHubInfo: false });
+      set({
+        githubError: (error as Error).message,
+        isLoadingGitHubInfo: false,
+      });
     }
   },
 
@@ -1383,10 +1476,16 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
 
     try {
       // Load the submodule as a repository
-      const submoduleRepo = await loadSubmoduleRepository(repository.path, submodulePath);
+      const submoduleRepo = await loadSubmoduleRepository(
+        repository.path,
+        submodulePath,
+      );
 
       // Push current repo to stack for breadcrumb navigation
-      const newStack = [...repositoryStack, { path: repository.path, name: repository.name }];
+      const newStack = [
+        ...repositoryStack,
+        { path: repository.path, name: repository.name },
+      ];
 
       set({
         repository: {
@@ -1409,7 +1508,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       get().fetchSubmodules();
       get().fetchGitHubRepoInfo();
     } catch (error) {
-      set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+      set({
+        submoduleError: (error as Error).message,
+        isLoadingSubmodule: false,
+      });
     }
   },
 
@@ -1446,7 +1548,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
       get().fetchSubmodules();
       get().fetchGitHubRepoInfo();
     } catch (error) {
-      set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+      set({
+        submoduleError: (error as Error).message,
+        isLoadingSubmodule: false,
+      });
     }
   },
 
@@ -1481,7 +1586,10 @@ export const useRepositoryStore = create<RepositoryState>((set, get) => ({
         get().fetchGitHubRepoInfo();
       })
       .catch((error) => {
-        set({ submoduleError: (error as Error).message, isLoadingSubmodule: false });
+        set({
+          submoduleError: (error as Error).message,
+          isLoadingSubmodule: false,
+        });
       });
   },
 }));
