@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useState, useMemo } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 export function AuthorFilter() {
   const {
@@ -11,7 +11,7 @@ export function AuthorFilter() {
   } = useRepositoryStore();
 
   const [isExpanded, setIsExpanded] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [pendingAuthors, setPendingAuthors] = useState<string[]>([]);
 
   // Initialize pending authors when opening
@@ -33,15 +33,15 @@ export function AuthorFilter() {
 
     const query = searchQuery.toLowerCase();
     return contributorStats.filter(
-      c => c.name.toLowerCase().includes(query) || c.email.toLowerCase().includes(query)
+      (c) =>
+        c.name.toLowerCase().includes(query) ||
+        c.email.toLowerCase().includes(query),
     );
   }, [contributorStats, searchQuery]);
 
   const toggleAuthor = (email: string) => {
-    setPendingAuthors(prev =>
-      prev.includes(email)
-        ? prev.filter(e => e !== email)
-        : [...prev, email]
+    setPendingAuthors((prev) =>
+      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email],
     );
   };
 
@@ -58,7 +58,7 @@ export function AuthorFilter() {
 
   const handleSelectAll = () => {
     if (contributorStats) {
-      setPendingAuthors(contributorStats.map(c => c.email));
+      setPendingAuthors(contributorStats.map((c) => c.email));
     }
   };
 
@@ -69,8 +69,18 @@ export function AuthorFilter() {
         className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
           </svg>
           <span>Author Filter</span>
           {selectedAuthors.length > 0 && (
@@ -80,12 +90,17 @@ export function AuthorFilter() {
           )}
         </div>
         <svg
-          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
@@ -159,7 +174,7 @@ export function AuthorFilter() {
               disabled={isLoading}
               className="flex-1 px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Applying...' : 'Apply Filter'}
+              {isLoading ? "Applying..." : "Apply Filter"}
             </button>
             <button
               onClick={handleClear}

@@ -33,39 +33,41 @@ import type {
   CommitPatternsResponse,
   BranchLifespan,
   BranchLifespanResponse,
-} from '../types';
+} from "../types";
 
-const API_BASE = '/api';
+const API_BASE = "/api";
 
 // Get repository stats (fast - just commit count)
 export async function getRepoStats(path: string): Promise<RepoStats> {
   const response = await fetch(`${API_BASE}/repository/stats`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
 
   const data: StatsResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get repository stats');
+    throw new Error(data.error || "Failed to get repository stats");
   }
 
   return data.data!;
 }
 
 // Get repository metadata (branches, tags, stats) without commits
-export async function getRepoMetadata(path: string): Promise<RepositoryMetadata> {
+export async function getRepoMetadata(
+  path: string,
+): Promise<RepositoryMetadata> {
   const response = await fetch(`${API_BASE}/repository/metadata`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
 
   const data: MetadataResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get repository metadata');
+    throw new Error(data.error || "Failed to get repository metadata");
   }
 
   return data.data!;
@@ -74,9 +76,23 @@ export async function getRepoMetadata(path: string): Promise<RepositoryMetadata>
 // Get paginated commits
 export async function getCommitsPaginated(
   path: string,
-  options: { maxCount?: number; skip?: number; firstParent?: boolean; dateRange?: DateRange; branch?: string; authors?: string[] } = {}
+  options: {
+    maxCount?: number;
+    skip?: number;
+    firstParent?: boolean;
+    dateRange?: DateRange;
+    branch?: string;
+    authors?: string[];
+  } = {},
 ): Promise<PaginatedCommits> {
-  const { maxCount = 500, skip = 0, firstParent = false, dateRange, branch, authors } = options;
+  const {
+    maxCount = 500,
+    skip = 0,
+    firstParent = false,
+    dateRange,
+    branch,
+    authors,
+  } = options;
   const params = new URLSearchParams({
     maxCount: maxCount.toString(),
     skip: skip.toString(),
@@ -85,32 +101,32 @@ export async function getCommitsPaginated(
 
   // Add date range filters if provided
   if (dateRange?.since) {
-    params.set('since', dateRange.since);
+    params.set("since", dateRange.since);
   }
   if (dateRange?.until) {
-    params.set('until', dateRange.until);
+    params.set("until", dateRange.until);
   }
 
   // Add branch filter if provided
   if (branch) {
-    params.set('branch', branch);
+    params.set("branch", branch);
   }
 
   // Add author filters if provided
   if (authors && authors.length > 0) {
-    params.set('authors', authors.join(','));
+    params.set("authors", authors.join(","));
   }
 
   const response = await fetch(`${API_BASE}/repository/commits?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
 
   const data: CommitsResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get commits');
+    throw new Error(data.error || "Failed to get commits");
   }
 
   return data.data!;
@@ -127,7 +143,7 @@ export interface StreamCallbacks {
 export function streamRepository(
   path: string,
   callbacks: StreamCallbacks,
-  options: { chunkSize?: number; firstParent?: boolean } = {}
+  options: { chunkSize?: number; firstParent?: boolean } = {},
 ): () => void {
   const { chunkSize = 500, firstParent = false } = options;
   const params = new URLSearchParams({
@@ -139,22 +155,22 @@ export function streamRepository(
   const controller = new AbortController();
 
   fetch(`${API_BASE}/repository/stream?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
     signal: controller.signal,
   })
     .then(async (response) => {
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || 'Failed to stream repository');
+        throw new Error(text || "Failed to stream repository");
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
+      if (!reader) throw new Error("No response body");
 
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -163,16 +179,16 @@ export function streamRepository(
         buffer += decoder.decode(value, { stream: true });
 
         // Parse SSE events
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
-        let eventType = '';
-        let eventData = '';
+        let eventType = "";
+        let eventData = "";
 
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
+          if (line.startsWith("event: ")) {
             eventType = line.slice(7);
-          } else if (line.startsWith('data: ')) {
+          } else if (line.startsWith("data: ")) {
             eventData = line.slice(6);
 
             if (eventType && eventData) {
@@ -180,31 +196,35 @@ export function streamRepository(
                 const parsed = JSON.parse(eventData);
 
                 switch (eventType) {
-                  case 'metadata':
+                  case "metadata":
                     callbacks.onMetadata(parsed);
                     break;
-                  case 'commits':
-                    callbacks.onCommits(parsed.commits, parsed.progress, parsed.total);
+                  case "commits":
+                    callbacks.onCommits(
+                      parsed.commits,
+                      parsed.progress,
+                      parsed.total,
+                    );
                     break;
-                  case 'complete':
+                  case "complete":
                     callbacks.onComplete();
                     break;
-                  case 'error':
+                  case "error":
                     callbacks.onError(new Error(parsed.error));
                     break;
                 }
               } catch {
                 // Ignore parse errors
               }
-              eventType = '';
-              eventData = '';
+              eventType = "";
+              eventData = "";
             }
           }
         }
       }
     })
     .catch((error) => {
-      if (error.name !== 'AbortError') {
+      if (error.name !== "AbortError") {
         callbacks.onError(error);
       }
     });
@@ -216,9 +236,9 @@ export function streamRepository(
 // Legacy: Load full repository (for small repos)
 export async function loadRepository(path: string): Promise<Repository> {
   const response = await fetch(`${API_BASE}/repository/load`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ path }),
   });
@@ -226,7 +246,7 @@ export async function loadRepository(path: string): Promise<Repository> {
   const data: LoadRepositoryResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to load repository');
+    throw new Error(data.error || "Failed to load repository");
   }
 
   return data.data!;
@@ -234,7 +254,9 @@ export async function loadRepository(path: string): Promise<Repository> {
 
 export async function validateRepository(path: string): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE}/repository/validate?repoPath=${encodeURIComponent(path)}`);
+    const response = await fetch(
+      `${API_BASE}/repository/validate?repoPath=${encodeURIComponent(path)}`,
+    );
     const data = await response.json();
     return data.valid === true;
   } catch {
@@ -259,20 +281,20 @@ export function isGitUrl(input: string): boolean {
 export class AuthRequiredError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AuthRequiredError';
+    this.name = "AuthRequiredError";
   }
 }
 
 export async function cloneRepository(
   url: string,
-  options: { shallow?: boolean; token?: string } = {}
+  options: { shallow?: boolean; token?: string } = {},
 ): Promise<Repository> {
   const { shallow = true, token } = options;
 
   const response = await fetch(`${API_BASE}/repository/clone`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ url, shallow, token }),
   });
@@ -283,10 +305,10 @@ export async function cloneRepository(
     // Check if this is an auth error
     if (response.status === 401 || data.authRequired) {
       throw new AuthRequiredError(
-        'This repository requires authentication. Please provide a personal access token.'
+        "This repository requires authentication. Please provide a personal access token.",
       );
     }
-    throw new Error(data.error || 'Failed to clone repository');
+    throw new Error(data.error || "Failed to clone repository");
   }
 
   return data.data!;
@@ -294,17 +316,17 @@ export async function cloneRepository(
 
 export async function uploadRepository(file: File): Promise<Repository> {
   const formData = new FormData();
-  formData.append('gitZip', file);
+  formData.append("gitZip", file);
 
   const response = await fetch(`${API_BASE}/upload`, {
-    method: 'POST',
+    method: "POST",
     body: formData,
   });
 
   const data: LoadRepositoryResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to upload repository');
+    throw new Error(data.error || "Failed to upload repository");
   }
 
   return data.data!;
@@ -346,7 +368,7 @@ const SKIP_PATTERNS = [
 ];
 
 function isEssentialGitFile(path: string): boolean {
-  const normalized = path.replace(/\\/g, '/');
+  const normalized = path.replace(/\\/g, "/");
 
   // Skip non-essential files
   if (SKIP_PATTERNS.some((p) => p.test(normalized))) {
@@ -354,12 +376,13 @@ function isEssentialGitFile(path: string): boolean {
   }
 
   // Must be in .git folder or be a .git file directly
-  const isGitRelated = normalized.includes('.git/') ||
-    normalized.startsWith('objects/') ||
-    normalized.startsWith('refs/') ||
-    normalized === 'HEAD' ||
-    normalized === 'config' ||
-    normalized === 'packed-refs' ||
+  const isGitRelated =
+    normalized.includes(".git/") ||
+    normalized.startsWith("objects/") ||
+    normalized.startsWith("refs/") ||
+    normalized === "HEAD" ||
+    normalized === "config" ||
+    normalized === "packed-refs" ||
     /^\.git\//.test(normalized);
 
   if (!isGitRelated) return false;
@@ -377,24 +400,26 @@ export async function uploadFolder(files: FileList): Promise<Repository> {
     const relativePath = (file as any).webkitRelativePath || file.name;
 
     if (isEssentialGitFile(relativePath)) {
-      formData.append('files', file, relativePath);
+      formData.append("files", file, relativePath);
       fileCount++;
     }
   }
 
   if (fileCount === 0) {
-    throw new Error('No .git folder found or no essential git files in the selected directory');
+    throw new Error(
+      "No .git folder found or no essential git files in the selected directory",
+    );
   }
 
   const response = await fetch(`${API_BASE}/upload-folder`, {
-    method: 'POST',
+    method: "POST",
     body: formData,
   });
 
   const data: LoadRepositoryResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to upload folder');
+    throw new Error(data.error || "Failed to upload folder");
   }
 
   return data.data!;
@@ -404,18 +429,18 @@ export async function uploadFolder(files: FileList): Promise<Repository> {
 
 export async function getCommitDiffStats(
   repoPath: string,
-  commitHash: string
+  commitHash: string,
 ): Promise<DiffStats> {
   const response = await fetch(`${API_BASE}/commit/${commitHash}/diff-stats`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: DiffStatsResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get diff stats');
+    throw new Error(data.error || "Failed to get diff stats");
   }
 
   return data.data!;
@@ -424,22 +449,22 @@ export async function getCommitDiffStats(
 export async function getCommitFileDiff(
   repoPath: string,
   commitHash: string,
-  filePath: string
+  filePath: string,
 ): Promise<FileDiffDetail> {
   const params = new URLSearchParams({ filePath });
   const response = await fetch(
     `${API_BASE}/commit/${commitHash}/file-diff?${params}`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: repoPath }),
-    }
+    },
   );
 
   const data: FileDiffResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get file diff');
+    throw new Error(data.error || "Failed to get file diff");
   }
 
   return data.data!;
@@ -450,22 +475,22 @@ export async function getCommitFileDiff(
 export async function getFileTree(
   repoPath: string,
   commitHash: string,
-  treePath?: string
+  treePath?: string,
 ): Promise<TreeEntry[]> {
-  const params = treePath ? new URLSearchParams({ treePath }) : '';
+  const params = treePath ? new URLSearchParams({ treePath }) : "";
   const response = await fetch(
-    `${API_BASE}/commit/${commitHash}/tree${params ? `?${params}` : ''}`,
+    `${API_BASE}/commit/${commitHash}/tree${params ? `?${params}` : ""}`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: repoPath }),
-    }
+    },
   );
 
   const data: TreeResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get file tree');
+    throw new Error(data.error || "Failed to get file tree");
   }
 
   return data.data!;
@@ -474,22 +499,22 @@ export async function getFileTree(
 export async function getFileContent(
   repoPath: string,
   commitHash: string,
-  filePath: string
+  filePath: string,
 ): Promise<FileContent> {
   const params = new URLSearchParams({ filePath });
   const response = await fetch(
     `${API_BASE}/commit/${commitHash}/file?${params}`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ path: repoPath }),
-    }
+    },
   );
 
   const data: FileContentResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get file content');
+    throw new Error(data.error || "Failed to get file content");
   }
 
   return data.data!;
@@ -498,18 +523,18 @@ export async function getFileContent(
 // Stats APIs
 
 export async function getContributorStats(
-  repoPath: string
+  repoPath: string,
 ): Promise<ContributorStats[]> {
   const response = await fetch(`${API_BASE}/repository/contributors`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: ContributorStatsResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get contributor stats');
+    throw new Error(data.error || "Failed to get contributor stats");
   }
 
   return data.data!;
@@ -517,19 +542,19 @@ export async function getContributorStats(
 
 export async function getActivityHeatmap(
   repoPath: string,
-  days: number = 365
+  days: number = 365,
 ): Promise<ActivityDay[]> {
   const params = new URLSearchParams({ days: days.toString() });
   const response = await fetch(`${API_BASE}/repository/activity?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: ActivityResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get activity heatmap');
+    throw new Error(data.error || "Failed to get activity heatmap");
   }
 
   return data.data!;
@@ -539,15 +564,15 @@ export async function getActivityHeatmap(
 
 export async function getSubmodules(repoPath: string): Promise<Submodule[]> {
   const response = await fetch(`${API_BASE}/repository/submodules`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: SubmodulesResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get submodules');
+    throw new Error(data.error || "Failed to get submodules");
   }
 
   return data.data!;
@@ -555,18 +580,18 @@ export async function getSubmodules(repoPath: string): Promise<Submodule[]> {
 
 export async function loadSubmoduleRepository(
   repoPath: string,
-  submodulePath: string
+  submodulePath: string,
 ): Promise<Repository> {
   const response = await fetch(`${API_BASE}/repository/submodules/load`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath, submodulePath }),
   });
 
   const data: LoadRepositoryResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to load submodule');
+    throw new Error(data.error || "Failed to load submodule");
   }
 
   return data.data!;
@@ -577,18 +602,18 @@ export async function loadSubmoduleRepository(
 export async function compareBranches(
   repoPath: string,
   baseBranch: string,
-  compareBranch: string
+  compareBranch: string,
 ): Promise<BranchComparison> {
   const response = await fetch(`${API_BASE}/repository/branch-compare`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath, baseBranch, compareBranch }),
   });
 
   const data: BranchComparisonResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to compare branches');
+    throw new Error(data.error || "Failed to compare branches");
   }
 
   return data.data!;
@@ -598,19 +623,19 @@ export async function compareBranches(
 
 export async function getCodeChurn(
   repoPath: string,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<FileChurnStats[]> {
   const params = new URLSearchParams({ limit: limit.toString() });
   const response = await fetch(`${API_BASE}/repository/code-churn?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: CodeChurnResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get code churn');
+    throw new Error(data.error || "Failed to get code churn");
   }
 
   return data.data!;
@@ -618,56 +643,76 @@ export async function getCodeChurn(
 
 export async function getBusFactor(
   repoPath: string,
-  minCommits: number = 5
+  minCommits: number = 5,
 ): Promise<FileBusFactor[]> {
   const params = new URLSearchParams({ minCommits: minCommits.toString() });
   const response = await fetch(`${API_BASE}/repository/bus-factor?${params}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: BusFactorResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get bus factor');
+    throw new Error(data.error || "Failed to get bus factor");
   }
 
   return data.data!;
 }
 
 export async function getCommitPatterns(
-  repoPath: string
+  repoPath: string,
 ): Promise<CommitPatterns> {
   const response = await fetch(`${API_BASE}/repository/commit-patterns`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: CommitPatternsResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get commit patterns');
+    throw new Error(data.error || "Failed to get commit patterns");
   }
 
   return data.data!;
 }
 
 export async function getBranchLifespans(
-  repoPath: string
+  repoPath: string,
 ): Promise<BranchLifespan[]> {
   const response = await fetch(`${API_BASE}/repository/branch-lifespans`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   const data: BranchLifespanResponse = await response.json();
 
   if (!response.ok || !data.success) {
-    throw new Error(data.error || 'Failed to get branch lifespans');
+    throw new Error(data.error || "Failed to get branch lifespans");
   }
 
   return data.data!;
+}
+
+// Cleanup temporary repository
+export async function cleanupRepository(repoPath: string): Promise<void> {
+  try {
+    const response = await fetch(`${API_BASE}/repository/cleanup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: repoPath }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.warn("Failed to cleanup repository:", data.error);
+    }
+  } catch (error) {
+    // Silently fail - cleanup is best effort
+    console.warn("Failed to cleanup repository:", error);
+  }
 }

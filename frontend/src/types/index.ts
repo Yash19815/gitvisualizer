@@ -5,7 +5,7 @@ export interface Author {
 
 export interface RefInfo {
   name: string;
-  type: 'branch' | 'tag' | 'remote';
+  type: "branch" | "tag" | "remote";
   isHead: boolean;
 }
 
@@ -35,7 +35,7 @@ export interface Tag {
 export interface RepoStats {
   totalCommits: number;
   isLargeRepo: boolean;
-  recommendedMode: 'full' | 'paginated' | 'simplified';
+  recommendedMode: "full" | "paginated" | "simplified";
 }
 
 export interface RepositoryMetadata {
@@ -93,7 +93,7 @@ export interface CommitsResponse {
 export interface FileDiff {
   path: string;
   oldPath?: string;
-  status: 'added' | 'deleted' | 'modified' | 'renamed' | 'copied';
+  status: "added" | "deleted" | "modified" | "renamed" | "copied";
   additions: number;
   deletions: number;
   binary: boolean;
@@ -121,7 +121,7 @@ export interface FileDiffDetail extends FileDiff {
 export interface TreeEntry {
   name: string;
   path: string;
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   size?: number;
 }
 
@@ -229,7 +229,7 @@ export interface BranchComparisonResponse {
 export interface PullRequest {
   number: number;
   title: string;
-  state: 'open' | 'closed' | 'merged';
+  state: "open" | "closed" | "merged";
   url: string;
   author: string;
   createdAt: string;
@@ -239,7 +239,7 @@ export interface PullRequest {
 export interface Issue {
   number: number;
   title: string;
-  state: 'open' | 'closed';
+  state: "open" | "closed";
   url: string;
   labels: string[];
 }
@@ -335,7 +335,7 @@ export interface BusFactorResponse {
 
 // Commit Patterns Types
 export interface CommitPatternCell {
-  hour: number;      // 0-23
+  hour: number; // 0-23
   dayOfWeek: number; // 0-6 (Sunday-Saturday)
   count: number;
 }
@@ -359,7 +359,7 @@ export interface BranchLifespan {
   createdAt: string;
   mergedAt: string | null;
   lifespanDays: number | null;
-  status: 'active' | 'merged' | 'stale';
+  status: "active" | "merged" | "stale";
   commitCount: number;
 }
 

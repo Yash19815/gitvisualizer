@@ -1,4 +1,4 @@
-import type { FileDiff } from '../../types';
+import type { FileDiff } from "../../types";
 
 interface DiffFileListProps {
   files: FileDiff[];
@@ -6,70 +6,74 @@ interface DiffFileListProps {
   onFileSelect: (filePath: string) => void;
 }
 
-function getStatusColor(status: FileDiff['status']): string {
+function getStatusColor(status: FileDiff["status"]): string {
   switch (status) {
-    case 'added':
-      return 'text-green-600 bg-green-50';
-    case 'deleted':
-      return 'text-red-600 bg-red-50';
-    case 'modified':
-      return 'text-amber-600 bg-amber-50';
-    case 'renamed':
-    case 'copied':
-      return 'text-blue-600 bg-blue-50';
+    case "added":
+      return "text-green-600 bg-green-50";
+    case "deleted":
+      return "text-red-600 bg-red-50";
+    case "modified":
+      return "text-amber-600 bg-amber-50";
+    case "renamed":
+    case "copied":
+      return "text-blue-600 bg-blue-50";
     default:
-      return 'text-gray-600 bg-gray-50';
+      return "text-gray-600 bg-gray-50";
   }
 }
 
-function getStatusLabel(status: FileDiff['status']): string {
+function getStatusLabel(status: FileDiff["status"]): string {
   switch (status) {
-    case 'added':
-      return 'A';
-    case 'deleted':
-      return 'D';
-    case 'modified':
-      return 'M';
-    case 'renamed':
-      return 'R';
-    case 'copied':
-      return 'C';
+    case "added":
+      return "A";
+    case "deleted":
+      return "D";
+    case "modified":
+      return "M";
+    case "renamed":
+      return "R";
+    case "copied":
+      return "C";
     default:
-      return '?';
+      return "?";
   }
 }
 
-function getFileIcon(path: string, status: FileDiff['status']): string {
-  if (status === 'deleted') return '🗑️';
+function getFileIcon(path: string, status: FileDiff["status"]): string {
+  if (status === "deleted") return "🗑️";
 
-  const ext = path.split('.').pop()?.toLowerCase();
+  const ext = path.split(".").pop()?.toLowerCase();
   switch (ext) {
-    case 'ts':
-    case 'tsx':
-      return '📘';
-    case 'js':
-    case 'jsx':
-      return '📒';
-    case 'json':
-      return '📋';
-    case 'css':
-    case 'scss':
-      return '🎨';
-    case 'html':
-      return '🌐';
-    case 'md':
-      return '📝';
-    case 'png':
-    case 'jpg':
-    case 'gif':
-    case 'svg':
-      return '🖼️';
+    case "ts":
+    case "tsx":
+      return "📘";
+    case "js":
+    case "jsx":
+      return "📒";
+    case "json":
+      return "📋";
+    case "css":
+    case "scss":
+      return "🎨";
+    case "html":
+      return "🌐";
+    case "md":
+      return "📝";
+    case "png":
+    case "jpg":
+    case "gif":
+    case "svg":
+      return "🖼️";
     default:
-      return '📄';
+      return "📄";
   }
 }
 
-export function DiffFileList({ files, selectedPath, onFileSelect }: DiffFileListProps) {
+export function DiffFileList({
+  files,
+  selectedPath,
+  onFileSelect,
+}: DiffFileListProps) {
   if (files.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500 text-sm">
@@ -86,7 +90,7 @@ export function DiffFileList({ files, selectedPath, onFileSelect }: DiffFileList
           onClick={() => onFileSelect(file.path)}
           className={`
             w-full text-left px-3 py-2 hover:bg-gray-50 transition-colors
-            ${selectedPath === file.path ? 'bg-blue-50' : ''}
+            ${selectedPath === file.path ? "bg-blue-50" : ""}
           `}
         >
           <div className="flex items-center gap-2">
@@ -95,7 +99,9 @@ export function DiffFileList({ files, selectedPath, onFileSelect }: DiffFileList
             >
               {getStatusLabel(file.status)}
             </span>
-            <span className="text-sm">{getFileIcon(file.path, file.status)}</span>
+            <span className="text-sm">
+              {getFileIcon(file.path, file.status)}
+            </span>
             <span className="flex-1 text-sm text-gray-700 truncate font-mono">
               {file.oldPath ? (
                 <>
@@ -112,7 +118,9 @@ export function DiffFileList({ files, selectedPath, onFileSelect }: DiffFileList
                 {file.additions > 0 && (
                   <span className="text-green-600">+{file.additions}</span>
                 )}
-                {file.additions > 0 && file.deletions > 0 && <span className="mx-1">/</span>}
+                {file.additions > 0 && file.deletions > 0 && (
+                  <span className="mx-1">/</span>
+                )}
                 {file.deletions > 0 && (
                   <span className="text-red-600">-{file.deletions}</span>
                 )}

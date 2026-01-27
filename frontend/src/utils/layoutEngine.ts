@@ -1,7 +1,7 @@
-import dagre from '@dagrejs/dagre';
-import type { Node, Edge } from '@xyflow/react';
-import type { Commit, Submodule } from '../types';
-import { assignBranchColors, assignAuthorColors } from './branchColors';
+import dagre from "@dagrejs/dagre";
+import type { Node, Edge } from "@xyflow/react";
+import type { Commit, Submodule } from "../types";
+import { assignBranchColors, assignAuthorColors } from "./branchColors";
 
 export interface CommitNodeData extends Record<string, unknown> {
   commit: Commit;
@@ -18,8 +18,8 @@ export interface SubmoduleNodeData extends Record<string, unknown> {
   onNavigate?: (submodulePath: string) => void;
 }
 
-export type CommitNode = Node<CommitNodeData, 'commit'>;
-export type SubmoduleGraphNode = Node<SubmoduleNodeData, 'submodule'>;
+export type CommitNode = Node<CommitNodeData, "commit">;
+export type SubmoduleGraphNode = Node<SubmoduleNodeData, "submodule">;
 export type CommitEdge = Edge<{ isMerge: boolean; color: string }>;
 
 // Node dimensions for different modes
@@ -29,7 +29,7 @@ const NODE_WIDTH_COMPACT = 200;
 const NODE_HEIGHT_COMPACT = 60;
 
 interface LayoutOptions {
-  direction: 'TB' | 'LR';
+  direction: "TB" | "LR";
   nodeSpacing: number;
   rankSpacing: number;
 }
@@ -43,7 +43,7 @@ export interface GraphSettings {
 // Simple vertical layout fallback when dagre can't be used (e.g., cycles detected)
 function createSimpleLayout(
   commits: Commit[],
-  graphSettings: GraphSettings
+  graphSettings: GraphSettings,
 ): { nodes: CommitNode[]; edges: CommitEdge[] } {
   const { compactMode, colorByAuthor, highlightedCommits } = graphSettings;
   const nodeHeight = compactMode ? NODE_HEIGHT_COMPACT : NODE_HEIGHT_NORMAL;
@@ -53,18 +53,18 @@ function createSimpleLayout(
     ? assignAuthorColors(commits)
     : assignBranchColors(commits);
 
-  const commitSet = new Set(commits.map(c => c.hash));
+  const commitSet = new Set(commits.map((c) => c.hash));
 
   const nodes: CommitNode[] = commits.map((commit, index) => ({
     id: commit.hash,
-    type: 'commit',
+    type: "commit",
     position: {
       x: 50,
       y: index * (nodeHeight + spacing),
     },
     data: {
       commit,
-      color: colorMap.get(commit.hash) || '#888',
+      color: colorMap.get(commit.hash) || "#888",
       isCompact: compactMode,
       isHighlighted: highlightedCommits.has(commit.hash),
     },
@@ -86,14 +86,14 @@ function createSimpleLayout(
         id: `${commit.hash}-${parentHash}`,
         source: commit.hash,
         target: parentHash,
-        type: 'smoothstep',
+        type: "smoothstep",
         style: {
-          stroke: colorMap.get(commit.hash) || '#888',
+          stroke: colorMap.get(commit.hash) || "#888",
           strokeWidth: 2,
         },
         data: {
           isMerge: i > 0,
-          color: colorMap.get(commit.hash) || '#888',
+          color: colorMap.get(commit.hash) || "#888",
         },
       });
     }
@@ -104,7 +104,7 @@ function createSimpleLayout(
 
 // Detect cycles in commit graph using iterative DFS (avoids stack overflow)
 function hasCycle(commits: Commit[]): boolean {
-  const commitMap = new Map(commits.map(c => [c.hash, c]));
+  const commitMap = new Map(commits.map((c) => [c.hash, c]));
   const visited = new Set<string>();
   const finished = new Set<string>();
 
@@ -113,7 +113,7 @@ function hasCycle(commits: Commit[]): boolean {
 
     // Iterative DFS with explicit stack
     const stack: Array<{ hash: string; parentIndex: number }> = [
-      { hash: startCommit.hash, parentIndex: 0 }
+      { hash: startCommit.hash, parentIndex: 0 },
     ];
     const path = new Set<string>();
 
@@ -174,8 +174,16 @@ const DAGRE_MAX_COMMITS = 5000;
 
 export function layoutCommitGraph(
   commits: Commit[],
-  options: LayoutOptions = { direction: 'TB', nodeSpacing: 40, rankSpacing: 80 },
-  graphSettings: GraphSettings = { compactMode: false, colorByAuthor: false, highlightedCommits: new Set() }
+  options: LayoutOptions = {
+    direction: "TB",
+    nodeSpacing: 40,
+    rankSpacing: 80,
+  },
+  graphSettings: GraphSettings = {
+    compactMode: false,
+    colorByAuthor: false,
+    highlightedCommits: new Set(),
+  },
 ): { nodes: CommitNode[]; edges: CommitEdge[] } {
   if (commits.length === 0) {
     return { nodes: [], edges: [] };
@@ -183,13 +191,17 @@ export function layoutCommitGraph(
 
   // For large repos, skip dagre entirely to avoid stack overflow in its recursive DFS
   if (commits.length > DAGRE_MAX_COMMITS) {
-    console.warn(`Large repo (${commits.length} commits) - using simple layout to avoid stack overflow`);
+    console.warn(
+      `Large repo (${commits.length} commits) - using simple layout to avoid stack overflow`,
+    );
     return createSimpleLayout(commits, graphSettings);
   }
 
   // Check for cycles which would cause dagre to stack overflow
   if (hasCycle(commits)) {
-    console.error('Commit graph contains cycles - cannot layout. Returning simple vertical layout.');
+    console.error(
+      "Commit graph contains cycles - cannot layout. Returning simple vertical layout.",
+    );
     return createSimpleLayout(commits, graphSettings);
   }
 
@@ -200,8 +212,12 @@ export function layoutCommitGraph(
   const nodeHeight = compactMode ? NODE_HEIGHT_COMPACT : NODE_HEIGHT_NORMAL;
 
   // Adjust spacing for compact mode
-  const nodeSpacing = compactMode ? options.nodeSpacing * 0.6 : options.nodeSpacing;
-  const rankSpacing = compactMode ? options.rankSpacing * 0.6 : options.rankSpacing;
+  const nodeSpacing = compactMode
+    ? options.nodeSpacing * 0.6
+    : options.nodeSpacing;
+  const rankSpacing = compactMode
+    ? options.rankSpacing * 0.6
+    : options.rankSpacing;
 
   const g = new dagre.graphlib.Graph();
 
@@ -220,7 +236,7 @@ export function layoutCommitGraph(
     ? assignAuthorColors(commits)
     : assignBranchColors(commits);
 
-  const commitSet = new Set(commits.map(c => c.hash));
+  const commitSet = new Set(commits.map((c) => c.hash));
 
   // Add nodes
   for (const commit of commits) {
@@ -236,7 +252,9 @@ export function layoutCommitGraph(
       const parentHash = commit.parents[i];
       // Skip self-loops (would cause infinite recursion in dagre DFS)
       if (parentHash === commit.hash) {
-        console.warn(`Skipping self-loop: commit ${commit.hash} references itself as parent`);
+        console.warn(
+          `Skipping self-loop: commit ${commit.hash} references itself as parent`,
+        );
         continue;
       }
       // Skip if parent not in our commit set
@@ -255,14 +273,14 @@ export function layoutCommitGraph(
         id: `${commit.hash}-${parentHash}`,
         source: commit.hash,
         target: parentHash,
-        type: 'smoothstep',
+        type: "smoothstep",
         style: {
-          stroke: colorMap.get(commit.hash) || '#888',
+          stroke: colorMap.get(commit.hash) || "#888",
           strokeWidth: 2,
         },
         data: {
           isMerge: i > 0,
-          color: colorMap.get(commit.hash) || '#888',
+          color: colorMap.get(commit.hash) || "#888",
         },
       });
     }
@@ -272,18 +290,18 @@ export function layoutCommitGraph(
   dagre.layout(g);
 
   // Extract positioned nodes
-  const nodes: CommitNode[] = commits.map(commit => {
+  const nodes: CommitNode[] = commits.map((commit) => {
     const nodeWithPosition = g.node(commit.hash);
     return {
       id: commit.hash,
-      type: 'commit',
+      type: "commit",
       position: {
         x: nodeWithPosition.x - nodeWidth / 2,
         y: nodeWithPosition.y - nodeHeight / 2,
       },
       data: {
         commit,
-        color: colorMap.get(commit.hash) || '#888',
+        color: colorMap.get(commit.hash) || "#888",
         isCompact: compactMode,
         isHighlighted: highlightedCommits.has(commit.hash),
       },
@@ -309,14 +327,16 @@ export interface SubmoduleLayoutOptions {
 export function layoutSubmoduleNodes(
   submodules: Submodule[],
   commitNodes: CommitNode[],
-  options: SubmoduleLayoutOptions
+  options: SubmoduleLayoutOptions,
 ): SubmoduleGraphNode[] {
   if (submodules.length === 0) return [];
 
   const { isCompact, selectedSubmodulePath, onNavigate } = options;
 
   // Select node dimensions based on compact mode
-  const nodeWidth = isCompact ? SUBMODULE_WIDTH_COMPACT : SUBMODULE_WIDTH_NORMAL;
+  const nodeWidth = isCompact
+    ? SUBMODULE_WIDTH_COMPACT
+    : SUBMODULE_WIDTH_NORMAL;
   const spacing = isCompact ? 20 : 30;
 
   // Find the bottom of the commit graph
@@ -328,25 +348,27 @@ export function layoutSubmoduleNodes(
     const nodeBottom = node.position.y + (isCompact ? 60 : 100);
     if (nodeBottom > maxY) maxY = nodeBottom;
     if (node.position.x < minX) minX = node.position.x;
-    if (node.position.x > maxX) maxX = node.position.x + (isCompact ? 200 : 280);
+    if (node.position.x > maxX)
+      maxX = node.position.x + (isCompact ? 200 : 280);
   }
 
   // Position submodule nodes below the graph, centered horizontally
-  const totalWidth = submodules.length * nodeWidth + (submodules.length - 1) * spacing;
+  const totalWidth =
+    submodules.length * nodeWidth + (submodules.length - 1) * spacing;
   const graphWidth = maxX - minX;
   const startX = minX + (graphWidth - totalWidth) / 2;
   const startY = maxY + 60; // Gap below commits
 
   return submodules.map((submodule, index) => ({
     id: `submodule-${submodule.path}`,
-    type: 'submodule' as const,
+    type: "submodule" as const,
     position: {
       x: startX + index * (nodeWidth + spacing),
       y: startY,
     },
     data: {
       submodule,
-      color: '#14b8a6', // teal-500
+      color: "#14b8a6", // teal-500
       isCompact,
       isSelected: selectedSubmodulePath === submodule.path,
       onNavigate,

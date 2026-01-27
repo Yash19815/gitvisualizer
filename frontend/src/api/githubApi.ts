@@ -4,14 +4,14 @@ import type {
   GitHubInfoResponse,
   GitHubRepoInfoResponse,
   GitHubRateLimitResponse,
-} from '../types';
+} from "../types";
 
-const API_BASE = 'http://localhost:3001/api';
+const API_BASE = "http://localhost:3001/api";
 
 // Progress event types for streaming
 export interface GitHubProgressEvent {
   step: string;
-  status: 'start' | 'success' | 'error' | 'info';
+  status: "start" | "success" | "error" | "info";
   message: string;
   data?: Record<string, unknown>;
 }
@@ -27,13 +27,13 @@ export interface GitHubStreamCallbacks {
  */
 export async function setGitHubToken(token: string | null): Promise<boolean> {
   const response = await fetch(`${API_BASE}/github/config`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to set GitHub token');
+    throw new Error("Failed to set GitHub token");
   }
 
   const data = await response.json();
@@ -51,7 +51,7 @@ export async function getGitHubRateLimit(): Promise<{
   const response = await fetch(`${API_BASE}/github/rate-limit`);
 
   if (!response.ok) {
-    throw new Error('Failed to get rate limit');
+    throw new Error("Failed to get rate limit");
   }
 
   const data: GitHubRateLimitResponse = await response.json();
@@ -61,15 +61,17 @@ export async function getGitHubRateLimit(): Promise<{
 /**
  * Get GitHub repo info (owner/repo) from repository
  */
-export async function getGitHubRepoInfo(repoPath: string): Promise<GitHubRepoInfo | null> {
+export async function getGitHubRepoInfo(
+  repoPath: string,
+): Promise<GitHubRepoInfo | null> {
   const response = await fetch(`${API_BASE}/github/repo-info`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get GitHub repo info');
+    throw new Error("Failed to get GitHub repo info");
   }
 
   const data: GitHubRepoInfoResponse = await response.json();
@@ -86,22 +88,22 @@ export async function getGitHubRepoInfo(repoPath: string): Promise<GitHubRepoInf
  */
 export async function getCommitGitHubInfo(
   repoPath: string,
-  commitHash: string
+  commitHash: string,
 ): Promise<CommitGitHubInfo> {
   const response = await fetch(`${API_BASE}/github/commit/${commitHash}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
   });
 
   if (!response.ok) {
-    throw new Error('Failed to get GitHub info for commit');
+    throw new Error("Failed to get GitHub info for commit");
   }
 
   const data: GitHubInfoResponse = await response.json();
 
   if (!data.success) {
-    throw new Error(data.error || 'Unknown error');
+    throw new Error(data.error || "Unknown error");
   }
 
   return data.data || { pullRequests: [], linkedIssues: [] };
@@ -113,27 +115,27 @@ export async function getCommitGitHubInfo(
 export function streamCommitGitHubInfo(
   repoPath: string,
   commitHash: string,
-  callbacks: GitHubStreamCallbacks
+  callbacks: GitHubStreamCallbacks,
 ): () => void {
   const controller = new AbortController();
 
   fetch(`${API_BASE}/github/commit/${commitHash}/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path: repoPath }),
     signal: controller.signal,
   })
     .then(async (response) => {
       if (!response.ok) {
         const text = await response.text();
-        throw new Error(text || 'Failed to stream GitHub info');
+        throw new Error(text || "Failed to stream GitHub info");
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
+      if (!reader) throw new Error("No response body");
 
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -142,16 +144,16 @@ export function streamCommitGitHubInfo(
         buffer += decoder.decode(value, { stream: true });
 
         // Parse SSE events
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
 
-        let eventType = '';
-        let eventData = '';
+        let eventType = "";
+        let eventData = "";
 
         for (const line of lines) {
-          if (line.startsWith('event: ')) {
+          if (line.startsWith("event: ")) {
             eventType = line.slice(7);
-          } else if (line.startsWith('data: ')) {
+          } else if (line.startsWith("data: ")) {
             eventData = line.slice(6);
 
             if (eventType && eventData) {
@@ -159,28 +161,28 @@ export function streamCommitGitHubInfo(
                 const parsed = JSON.parse(eventData);
 
                 switch (eventType) {
-                  case 'progress':
+                  case "progress":
                     callbacks.onProgress(parsed);
                     break;
-                  case 'complete':
+                  case "complete":
                     callbacks.onComplete(parsed.data);
                     break;
-                  case 'error':
+                  case "error":
                     callbacks.onError(parsed.message);
                     break;
                 }
               } catch {
                 // Ignore parse errors
               }
-              eventType = '';
-              eventData = '';
+              eventType = "";
+              eventData = "";
             }
           }
         }
       }
     })
     .catch((error) => {
-      if (error.name !== 'AbortError') {
+      if (error.name !== "AbortError") {
         callbacks.onError(error.message);
       }
     });

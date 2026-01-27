@@ -1,5 +1,5 @@
-import { useState, useCallback, type DragEvent, type ChangeEvent } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useState, useCallback, type DragEvent, type ChangeEvent } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 export function UploadZone() {
   const [isDragging, setIsDragging] = useState(false);
@@ -15,34 +15,52 @@ export function UploadZone() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
+  const handleDrop = useCallback(
+    async (e: DragEvent) => {
+      e.preventDefault();
+      setIsDragging(false);
 
-    const file = e.dataTransfer.files[0];
-    if (file && file.name.endsWith('.zip')) {
-      await uploadRepo(file);
-    }
-  }, [uploadRepo]);
+      const file = e.dataTransfer.files[0];
+      if (file && file.name.endsWith(".zip")) {
+        await uploadRepo(file);
+      }
+    },
+    [uploadRepo],
+  );
 
-  const handleZipSelect = useCallback(async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await uploadRepo(file);
-    }
-    e.target.value = '';
-  }, [uploadRepo]);
+  const handleZipSelect = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        await uploadRepo(file);
+      }
+      e.target.value = "";
+    },
+    [uploadRepo],
+  );
 
   return (
     <div className="space-y-4">
       {/* Quick tip for local repos */}
       <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <svg className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+          <svg
+            className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 10V3L4 14h7v7l9-11h-7z"
+            />
           </svg>
           <div>
-            <p className="text-sm font-medium text-green-800 dark:text-green-200">Fastest: Use the path input above</p>
+            <p className="text-sm font-medium text-green-800 dark:text-green-200">
+              Fastest: Use the path input above
+            </p>
             <p className="text-xs text-green-600 dark:text-green-400 mt-1">
               Right-click your project folder → "Copy as path" → Paste above
             </p>
@@ -53,7 +71,9 @@ export function UploadZone() {
       {/* Divider */}
       <div className="flex items-center gap-3">
         <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
-        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase">or upload</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500 uppercase">
+          or upload
+        </span>
         <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
       </div>
 
@@ -61,8 +81,8 @@ export function UploadZone() {
       <div
         className={`
           relative border-2 border-dashed rounded-lg p-6 text-center transition-colors
-          ${isDragging ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'}
-          ${isLoading ? 'opacity-50 pointer-events-none' : ''}
+          ${isDragging ? "border-blue-500 bg-blue-50 dark:bg-blue-900/30" : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"}
+          ${isLoading ? "opacity-50 pointer-events-none" : ""}
         `}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
@@ -78,7 +98,7 @@ export function UploadZone() {
 
         <div className="space-y-2">
           <svg
-            className={`w-8 h-8 mx-auto ${isDragging ? 'text-blue-500' : 'text-gray-400 dark:text-gray-500'}`}
+            className={`w-8 h-8 mx-auto ${isDragging ? "text-blue-500" : "text-gray-400 dark:text-gray-500"}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -92,7 +112,10 @@ export function UploadZone() {
           </svg>
 
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            <span className="font-medium text-gray-700 dark:text-gray-300">Drop a ZIP file</span> or click to browse
+            <span className="font-medium text-gray-700 dark:text-gray-300">
+              Drop a ZIP file
+            </span>{" "}
+            or click to browse
           </p>
           <p className="text-xs text-gray-400 dark:text-gray-500">
             ZIP containing a git repository
@@ -103,8 +126,19 @@ export function UploadZone() {
       {isLoading && (
         <div className="flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 py-2">
           <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+            />
           </svg>
           <span>Uploading and analyzing repository...</span>
         </div>

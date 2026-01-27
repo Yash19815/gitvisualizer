@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { useRepositoryStore } from '../store/repositoryStore';
+import { useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useRepositoryStore } from "../store/repositoryStore";
 
 /**
  * Parses the URL path to extract a repository URL.
@@ -13,35 +13,35 @@ import { useRepositoryStore } from '../store/repositoryStore';
  */
 function parseRepoFromPath(pathname: string): string | null {
   // Remove leading slash
-  const path = pathname.startsWith('/') ? pathname.slice(1) : pathname;
+  const path = pathname.startsWith("/") ? pathname.slice(1) : pathname;
 
   if (!path) return null;
 
   // Check if path starts with a known git hosting provider
   const gitProviders = [
-    'github.com',
-    'gitlab.com',
-    'bitbucket.org',
-    'codeberg.org',
-    'gitea.com',
-    'sr.ht',
+    "github.com",
+    "gitlab.com",
+    "bitbucket.org",
+    "codeberg.org",
+    "gitea.com",
+    "sr.ht",
   ];
 
-  const provider = gitProviders.find(p => path.startsWith(p));
+  const provider = gitProviders.find((p) => path.startsWith(p));
   if (!provider) return null;
 
   // Extract the remaining path (user/repo or user/repo/...)
   const repoPath = path.slice(provider.length);
 
   // Must have at least /user/repo
-  const parts = repoPath.split('/').filter(Boolean);
+  const parts = repoPath.split("/").filter(Boolean);
   if (parts.length < 2) return null;
 
   // Take only user/repo (ignore subpaths like /tree/main)
   const [user, repo] = parts;
 
   // Remove .git suffix if present
-  const cleanRepo = repo.replace(/\.git$/, '');
+  const cleanRepo = repo.replace(/\.git$/, "");
 
   return `https://${provider}/${user}/${cleanRepo}`;
 }
@@ -55,24 +55,24 @@ function repoUrlToPath(repoUrl: string): string {
     let cleanUrl = repoUrl;
 
     // Remove https:// prefix
-    if (cleanUrl.startsWith('https://')) {
+    if (cleanUrl.startsWith("https://")) {
       cleanUrl = cleanUrl.slice(8);
-    } else if (cleanUrl.startsWith('http://')) {
+    } else if (cleanUrl.startsWith("http://")) {
       cleanUrl = cleanUrl.slice(7);
-    } else if (cleanUrl.startsWith('git@')) {
+    } else if (cleanUrl.startsWith("git@")) {
       // Convert git@github.com:user/repo.git to github.com/user/repo
-      cleanUrl = cleanUrl.slice(4).replace(':', '/');
+      cleanUrl = cleanUrl.slice(4).replace(":", "/");
     }
 
     // Remove .git suffix
-    cleanUrl = cleanUrl.replace(/\.git$/, '');
+    cleanUrl = cleanUrl.replace(/\.git$/, "");
 
     // Remove trailing slashes
-    cleanUrl = cleanUrl.replace(/\/+$/, '');
+    cleanUrl = cleanUrl.replace(/\/+$/, "");
 
-    return '/' + cleanUrl;
+    return "/" + cleanUrl;
   } catch {
-    return '/';
+    return "/";
   }
 }
 
@@ -159,7 +159,7 @@ export function useRepoUrl() {
      */
     clearUrl: () => {
       lastRepoUrl.current = null;
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
     },
   };
 }

@@ -11,6 +11,8 @@ A full-stack web application for interactive visualization and analysis of Git r
 - Contributor statistics and activity heatmaps
 - Code churn and bus factor analysis
 - GitHub integration (PRs, issues linked to commits)
+- **High Performance Rendering**: Virtualized graph handling for large repositories (10k+ commits)
+- **Smart Cloning**: Auto-cleanup of temporary files and cancellation support
 - Dark mode support
 
 ## Tech Stack
@@ -61,10 +63,20 @@ npm run dev:frontend  # Start only frontend
 
 ## Visualizing the repo
 
-1. Add the absolute path of the folder containing the ```.git``` folder and voila! 
+1. Add the absolute path of the folder containing the `.git` folder and voila!
 
-### 
-Additionaly you can also input the github/gitlab url in the input bar on index page. or simply add ```localhost:<port> ``` prefix to your github/gitlab repo ```http://localhost:<port>/github.com/<user>/<repo>```
+###
+
+Additionaly you can also input the github/gitlab url in the input bar on index page. or simply add `localhost:<port> ` prefix to your github/gitlab repo `http://localhost:<port>/github.com/<user>/<repo>`
+
+## Large Repository Support
+
+Git Visualizer is optimized for handling large repositories (10k+ commits):
+
+- **Virtualization**: Uses advanced graph virtualization to render only visible nodes, ensuring smooth 60fps scrolling even for massive histories.
+- **Buffered Streaming**: Commits are streamed in chunks to prevent UI freezing during load.
+- **Simplified Mode**: Automatically suggests a simplified viewing mode (hiding merge commits or limiting metadata) for extremely large datasets.
+- **Safe Evaluation**: Warns users before loading heavy repositories to prevent browser crashes.
 
 ## Configuration
 
@@ -112,11 +124,13 @@ We welcome contributions! Please follow these guidelines:
 ### Development Workflow
 
 1. Make sure dependencies are installed:
+
    ```bash
    npm install
    ```
 
 2. Start the development servers:
+
    ```bash
    npm run dev
    ```
@@ -131,11 +145,13 @@ We welcome contributions! Please follow these guidelines:
 ### Submitting Changes
 
 1. Commit your changes with clear, descriptive messages:
+
    ```bash
    git commit -m "feat: add new visualization feature"
    ```
 
 2. Push to your fork:
+
    ```bash
    git push origin feature/your-feature-name
    ```

@@ -1,38 +1,45 @@
-import { useState, useMemo } from 'react';
-import type { FileChurnStats } from '../../types';
+import { useState, useMemo } from "react";
+import type { FileChurnStats } from "../../types";
 
 interface CodeChurnListProps {
   data: FileChurnStats[];
 }
 
-type SortField = 'churnScore' | 'changeCount' | 'totalAdditions' | 'totalDeletions';
+type SortField =
+  | "churnScore"
+  | "changeCount"
+  | "totalAdditions"
+  | "totalDeletions";
 
 export function CodeChurnList({ data }: CodeChurnListProps) {
-  const [sortField, setSortField] = useState<SortField>('churnScore');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortField, setSortField] = useState<SortField>("churnScore");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
   const sorted = useMemo(() => {
     return [...data].sort((a, b) => {
       const aVal = a[sortField];
       const bVal = b[sortField];
-      return sortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+      return sortDirection === "desc" ? bVal - aVal : aVal - bVal;
     });
   }, [data, sortField, sortDirection]);
 
-  const maxChurn = useMemo(() => Math.max(...data.map(d => d.churnScore)), [data]);
+  const maxChurn = useMemo(
+    () => Math.max(...data.map((d) => d.churnScore)),
+    [data],
+  );
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
-      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+      setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"));
     } else {
       setSortField(field);
-      setSortDirection('desc');
+      setSortDirection("desc");
     }
   };
 
   const SortIcon = ({ field }: { field: SortField }) => (
     <svg
-      className={`w-3 h-3 ml-1 inline ${sortField === field ? 'opacity-100' : 'opacity-0'}`}
+      className={`w-3 h-3 ml-1 inline ${sortField === field ? "opacity-100" : "opacity-0"}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -41,7 +48,7 @@ export function CodeChurnList({ data }: CodeChurnListProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d={sortDirection === 'desc' ? 'M19 9l-7 7-7-7' : 'M5 15l7-7 7 7'}
+        d={sortDirection === "desc" ? "M19 9l-7 7-7-7" : "M5 15l7-7 7 7"}
       />
     </svg>
   );
@@ -56,25 +63,25 @@ export function CodeChurnList({ data }: CodeChurnListProps) {
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('churnScore')}
+              onClick={() => handleSort("churnScore")}
             >
               Churn Score <SortIcon field="churnScore" />
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('changeCount')}
+              onClick={() => handleSort("changeCount")}
             >
               Changes <SortIcon field="changeCount" />
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('totalAdditions')}
+              onClick={() => handleSort("totalAdditions")}
             >
               Additions <SortIcon field="totalAdditions" />
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('totalDeletions')}
+              onClick={() => handleSort("totalDeletions")}
             >
               Deletions <SortIcon field="totalDeletions" />
             </th>
@@ -84,7 +91,7 @@ export function CodeChurnList({ data }: CodeChurnListProps) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((file, index) => (
+          {sorted.map((file) => (
             <tr
               key={file.path}
               className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -97,7 +104,10 @@ export function CodeChurnList({ data }: CodeChurnListProps) {
                       backgroundColor: `hsl(${Math.max(0, 120 - (file.churnScore / maxChurn) * 120)}, 70%, 50%)`,
                     }}
                   />
-                  <span className="font-mono text-xs text-gray-900 dark:text-gray-100 truncate max-w-[300px]" title={file.path}>
+                  <span
+                    className="font-mono text-xs text-gray-900 dark:text-gray-100 truncate max-w-[300px]"
+                    title={file.path}
+                  >
                     {file.path}
                   </span>
                 </div>

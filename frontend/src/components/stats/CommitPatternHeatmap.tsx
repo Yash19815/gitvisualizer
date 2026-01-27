@@ -1,15 +1,19 @@
-import { useMemo, useState } from 'react';
-import type { CommitPatterns } from '../../types';
+import { useMemo, useState } from "react";
+import type { CommitPatterns } from "../../types";
 
 interface CommitPatternHeatmapProps {
   data: CommitPatterns;
 }
 
-const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    text: string;
+  } | null>(null);
 
   const { matrix, maxCount } = useMemo(() => {
     const matrix = new Map<string, number>();
@@ -25,15 +29,20 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
   }, [data]);
 
   const getColor = (count: number) => {
-    if (count === 0) return 'bg-gray-100 dark:bg-gray-800';
+    if (count === 0) return "bg-gray-100 dark:bg-gray-800";
     const intensity = count / maxCount;
-    if (intensity < 0.25) return 'bg-green-200 dark:bg-green-900';
-    if (intensity < 0.5) return 'bg-green-400 dark:bg-green-700';
-    if (intensity < 0.75) return 'bg-green-500 dark:bg-green-600';
-    return 'bg-green-700 dark:bg-green-500';
+    if (intensity < 0.25) return "bg-green-200 dark:bg-green-900";
+    if (intensity < 0.5) return "bg-green-400 dark:bg-green-700";
+    if (intensity < 0.75) return "bg-green-500 dark:bg-green-600";
+    return "bg-green-700 dark:bg-green-500";
   };
 
-  const handleMouseEnter = (e: React.MouseEvent, day: number, hour: number, count: number) => {
+  const handleMouseEnter = (
+    e: React.MouseEvent,
+    day: number,
+    hour: number,
+    count: number,
+  ) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setTooltip({
       x: rect.left + rect.width / 2,
@@ -43,8 +52,8 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
   };
 
   const formatHour = (hour: number) => {
-    if (hour === 0) return '12am';
-    if (hour === 12) return '12pm';
+    if (hour === 0) return "12am";
+    if (hour === 12) return "12pm";
     return hour < 12 ? `${hour}am` : `${hour - 12}pm`;
   };
 
@@ -70,27 +79,40 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {data.totalCommits.toLocaleString()}
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Total Commits</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Total Commits
+          </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {formatHour(data.peakHour)}
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Peak Hour</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Peak Hour
+          </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {DAYS[data.peakDay]}
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Peak Day</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Peak Day
+          </div>
         </div>
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
           <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {weekdayCommits.weekday > 0
-              ? ((weekdayCommits.weekday / (weekdayCommits.weekday + weekdayCommits.weekend)) * 100).toFixed(0)
-              : 0}%
+              ? (
+                  (weekdayCommits.weekday /
+                    (weekdayCommits.weekday + weekdayCommits.weekend)) *
+                  100
+                ).toFixed(0)
+              : 0}
+            %
           </div>
-          <div className="text-sm text-gray-500 dark:text-gray-400">Weekday Commits</div>
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Weekday Commits
+          </div>
         </div>
       </div>
 
@@ -101,7 +123,10 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
           <div className="flex flex-col mr-2">
             <div className="h-5" /> {/* Header spacer */}
             {DAYS.map((day) => (
-              <div key={day} className="h-5 flex items-center text-xs text-gray-500 dark:text-gray-400">
+              <div
+                key={day}
+                className="h-5 flex items-center text-xs text-gray-500 dark:text-gray-400"
+              >
                 {day}
               </div>
             ))}
@@ -116,7 +141,9 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
                   key={hour}
                   className="w-5 text-center text-[10px] text-gray-400 dark:text-gray-500"
                 >
-                  {hour % 3 === 0 ? formatHour(hour).replace('am', '').replace('pm', '') : ''}
+                  {hour % 3 === 0
+                    ? formatHour(hour).replace("am", "").replace("pm", "")
+                    : ""}
                 </div>
               ))}
             </div>
@@ -130,7 +157,9 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
                     <div
                       key={`${dayIndex}-${hour}`}
                       className={`w-5 h-5 m-[1px] rounded-sm ${getColor(count)} cursor-pointer transition-transform hover:scale-110`}
-                      onMouseEnter={(e) => handleMouseEnter(e, dayIndex, hour, count)}
+                      onMouseEnter={(e) =>
+                        handleMouseEnter(e, dayIndex, hour, count)
+                      }
                       onMouseLeave={() => setTooltip(null)}
                     />
                   );
@@ -158,7 +187,7 @@ export function CommitPatternHeatmap({ data }: CommitPatternHeatmapProps) {
             style={{
               left: tooltip.x,
               top: tooltip.y,
-              transform: 'translate(-50%, -100%)',
+              transform: "translate(-50%, -100%)",
             }}
           >
             {tooltip.text}

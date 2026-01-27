@@ -1,22 +1,25 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
-import { GitHubTokenModal } from '../settings/GitHubTokenModal';
-import { streamCommitGitHubInfo, type GitHubProgressEvent } from '../../api/githubApi';
-import type { CommitGitHubInfo } from '../../types';
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
+import { GitHubTokenModal } from "../settings/GitHubTokenModal";
+import {
+  streamCommitGitHubInfo,
+  type GitHubProgressEvent,
+} from "../../api/githubApi";
+import type { CommitGitHubInfo } from "../../types";
 
 // Progress step type
 interface ProgressStep {
   id: string;
   message: string;
-  status: 'pending' | 'loading' | 'success' | 'error' | 'info';
+  status: "pending" | "loading" | "success" | "error" | "info";
   timestamp: number;
 }
 
-function PRStatusBadge({ state }: { state: 'open' | 'closed' | 'merged' }) {
+function PRStatusBadge({ state }: { state: "open" | "closed" | "merged" }) {
   const styles = {
-    merged: 'bg-purple-100 text-purple-700',
-    open: 'bg-green-100 text-green-700',
-    closed: 'bg-red-100 text-red-700',
+    merged: "bg-purple-100 text-purple-700",
+    open: "bg-green-100 text-green-700",
+    closed: "bg-red-100 text-red-700",
   };
 
   return (
@@ -26,10 +29,10 @@ function PRStatusBadge({ state }: { state: 'open' | 'closed' | 'merged' }) {
   );
 }
 
-function IssueStatusBadge({ state }: { state: 'open' | 'closed' }) {
+function IssueStatusBadge({ state }: { state: "open" | "closed" }) {
   const styles = {
-    open: 'bg-green-100 text-green-700',
-    closed: 'bg-gray-100 text-gray-700',
+    open: "bg-green-100 text-green-700",
+    closed: "bg-gray-100 text-gray-700",
   };
 
   return (
@@ -39,57 +42,95 @@ function IssueStatusBadge({ state }: { state: 'open' | 'closed' }) {
   );
 }
 
-function ProgressIndicator({ steps, isComplete }: { steps: ProgressStep[]; isComplete: boolean }) {
-  const getStatusIcon = (status: ProgressStep['status']) => {
+function ProgressIndicator({
+  steps,
+  isComplete,
+}: {
+  steps: ProgressStep[];
+  isComplete: boolean;
+}) {
+  const getStatusIcon = (status: ProgressStep["status"]) => {
     switch (status) {
-      case 'loading':
+      case "loading":
         return (
           <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent" />
         );
-      case 'success':
+      case "success":
         return (
-          <svg className="w-4 h-4 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <svg
+            className="w-4 h-4 text-green-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M5 13l4 4L19 7"
+            />
           </svg>
         );
-      case 'error':
+      case "error":
         return (
-          <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-4 h-4 text-red-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         );
-      case 'info':
+      case "info":
         return (
-          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            className="w-4 h-4 text-blue-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         );
       default:
-        return (
-          <div className="w-4 h-4 rounded-full bg-gray-200" />
-        );
+        return <div className="w-4 h-4 rounded-full bg-gray-200" />;
     }
   };
 
-  const getStatusColor = (status: ProgressStep['status']) => {
+  const getStatusColor = (status: ProgressStep["status"]) => {
     switch (status) {
-      case 'loading':
-        return 'text-blue-600';
-      case 'success':
-        return 'text-green-600';
-      case 'error':
-        return 'text-red-600';
-      case 'info':
-        return 'text-blue-500';
+      case "loading":
+        return "text-blue-600";
+      case "success":
+        return "text-green-600";
+      case "error":
+        return "text-red-600";
+      case "info":
+        return "text-blue-500";
       default:
-        return 'text-gray-400';
+        return "text-gray-400";
     }
   };
 
   // Calculate overall progress percentage
-  const completedSteps = steps.filter(s => s.status === 'success' || s.status === 'info').length;
+  const completedSteps = steps.filter(
+    (s) => s.status === "success" || s.status === "info",
+  ).length;
   const totalSteps = Math.max(steps.length, 5); // Assume at least 5 steps
-  const progressPercent = isComplete ? 100 : Math.min(95, Math.round((completedSteps / totalSteps) * 100));
+  const progressPercent = isComplete
+    ? 100
+    : Math.min(95, Math.round((completedSteps / totalSteps) * 100));
 
   return (
     <div className="space-y-3">
@@ -113,7 +154,7 @@ function ProgressIndicator({ steps, isComplete }: { steps: ProgressStep[]; isCom
           <div
             key={`${step.id}-${index}`}
             className={`flex items-start gap-2 py-1 text-xs transition-all duration-200 ${
-              step.status === 'loading' ? 'animate-pulse' : ''
+              step.status === "loading" ? "animate-pulse" : ""
             }`}
           >
             <div className="flex-shrink-0 mt-0.5">
@@ -158,13 +199,13 @@ export function GitHubInfo() {
 
   // Handle progress events
   const handleProgress = useCallback((event: GitHubProgressEvent) => {
-    setProgressSteps(prev => {
+    setProgressSteps((prev) => {
       // Find existing step with same id or add new one
-      const existingIndex = prev.findIndex(s => s.id === event.step);
+      const existingIndex = prev.findIndex((s) => s.id === event.step);
       const newStep: ProgressStep = {
         id: event.step,
         message: event.message,
-        status: event.status === 'start' ? 'loading' : event.status,
+        status: event.status === "start" ? "loading" : event.status,
         timestamp: Date.now(),
       };
 
@@ -187,10 +228,15 @@ export function GitHubInfo() {
     setIsComplete(true);
 
     // Log to console for debugging
-    console.log('%c[GitHub] %cLoading complete', 'color: #6366f1; font-weight: bold', 'color: #22c55e', {
-      pullRequests: data.pullRequests.length,
-      linkedIssues: data.linkedIssues.length,
-    });
+    console.log(
+      "%c[GitHub] %cLoading complete",
+      "color: #6366f1; font-weight: bold",
+      "color: #22c55e",
+      {
+        pullRequests: data.pullRequests.length,
+        linkedIssues: data.linkedIssues.length,
+      },
+    );
   }, []);
 
   // Handle error
@@ -199,7 +245,12 @@ export function GitHubInfo() {
     setIsLoading(false);
 
     // Log to console for debugging
-    console.log('%c[GitHub] %cError: %c' + errorMsg, 'color: #6366f1; font-weight: bold', 'color: #ef4444', 'color: #ef4444');
+    console.log(
+      "%c[GitHub] %cError: %c" + errorMsg,
+      "color: #6366f1; font-weight: bold",
+      "color: #ef4444",
+      "color: #ef4444",
+    );
   }, []);
 
   // Fetch GitHub info for selected commit using streaming
@@ -232,10 +283,11 @@ export function GitHubInfo() {
     setError(null);
 
     // Log to console
-    console.log('%c[GitHub] %cStarting fetch for commit %c' + selectedCommit.shortHash,
-      'color: #6366f1; font-weight: bold',
-      'color: #64748b',
-      'color: #3b82f6; font-family: monospace'
+    console.log(
+      "%c[GitHub] %cStarting fetch for commit %c" + selectedCommit.shortHash,
+      "color: #6366f1; font-weight: bold",
+      "color: #64748b",
+      "color: #3b82f6; font-family: monospace",
     );
 
     // Use streaming API
@@ -246,7 +298,7 @@ export function GitHubInfo() {
         onProgress: handleProgress,
         onComplete: handleComplete,
         onError: handleError,
-      }
+      },
     );
 
     return () => {
@@ -255,7 +307,16 @@ export function GitHubInfo() {
         abortRef.current = null;
       }
     };
-  }, [selectedCommit, githubRepoInfo, repository?.path, handleProgress, handleComplete, handleError, githubInfo, isComplete]);
+  }, [
+    selectedCommit,
+    githubRepoInfo,
+    repository?.path,
+    handleProgress,
+    handleComplete,
+    handleError,
+    githubInfo,
+    isComplete,
+  ]);
 
   if (!selectedCommit) return null;
 
@@ -264,8 +325,16 @@ export function GitHubInfo() {
     return (
       <div className="p-4">
         <div className="text-center text-gray-500 py-8">
-          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+          <svg
+            className="w-12 h-12 mx-auto mb-3 text-gray-300"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              fillRule="evenodd"
+              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+              clipRule="evenodd"
+            />
           </svg>
           <p className="text-sm">Checking GitHub connection...</p>
         </div>
@@ -277,14 +346,23 @@ export function GitHubInfo() {
     return (
       <div className="p-4">
         <div className="text-center text-gray-500 py-8">
-          <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+          <svg
+            className="w-12 h-12 mx-auto mb-3 text-gray-300"
+            fill="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              fillRule="evenodd"
+              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+              clipRule="evenodd"
+            />
           </svg>
           <p className="text-sm font-medium mb-1">
-            {repoError ? 'Failed to check GitHub' : 'Not a GitHub Repository'}
+            {repoError ? "Failed to check GitHub" : "Not a GitHub Repository"}
           </p>
           <p className="text-xs text-gray-400">
-            {repoError || 'GitHub integration is only available for repositories hosted on GitHub.'}
+            {repoError ||
+              "GitHub integration is only available for repositories hosted on GitHub."}
           </p>
           {repoError && (
             <button
@@ -305,19 +383,25 @@ export function GitHubInfo() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+              clipRule="evenodd"
+            />
           </svg>
-          <span className="font-mono">{githubRepoInfo.owner}/{githubRepoInfo.repo}</span>
+          <span className="font-mono">
+            {githubRepoInfo.owner}/{githubRepoInfo.repo}
+          </span>
         </div>
         <button
           onClick={() => setShowTokenModal(true)}
           className={`text-xs px-2 py-1 rounded ${
             githubToken
-              ? 'bg-green-100 text-green-700 hover:bg-green-200'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ? "bg-green-100 text-green-700 hover:bg-green-200"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          {githubToken ? 'Token Set' : 'Add Token'}
+          {githubToken ? "Token Set" : "Add Token"}
         </button>
       </div>
 
@@ -339,16 +423,26 @@ export function GitHubInfo() {
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           <div className="flex items-start gap-2">
-            <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <svg
+              className="w-5 h-5 flex-shrink-0 mt-0.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
             <div>
               <p className="font-medium">Failed to load GitHub info</p>
               <p className="text-xs mt-1">{error}</p>
-              {error.includes('Commit not found') && (
+              {error.includes("Commit not found") && (
                 <p className="text-xs mt-2 text-red-600">
-                  This may be because the repository was cloned with shallow history.
-                  Try cloning with "full history" option.
+                  This may be because the repository was cloned with shallow
+                  history. Try cloning with "full history" option.
                 </p>
               )}
               {!githubToken && (
@@ -373,7 +467,9 @@ export function GitHubInfo() {
               Pull Requests ({githubInfo.pullRequests.length})
             </label>
             {githubInfo.pullRequests.length === 0 ? (
-              <p className="mt-2 text-sm text-gray-400">No PRs found for this commit</p>
+              <p className="mt-2 text-sm text-gray-400">
+                No PRs found for this commit
+              </p>
             ) : (
               <div className="mt-2 space-y-2">
                 {githubInfo.pullRequests.map((pr) => (
@@ -387,14 +483,30 @@ export function GitHubInfo() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">#{pr.number}</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            #{pr.number}
+                          </span>
                           <PRStatusBadge state={pr.state} />
                         </div>
-                        <p className="text-sm text-gray-700 truncate mt-1">{pr.title}</p>
-                        <p className="text-xs text-gray-500 mt-1">by {pr.author}</p>
+                        <p className="text-sm text-gray-700 truncate mt-1">
+                          {pr.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          by {pr.author}
+                        </p>
                       </div>
-                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <svg
+                        className="w-4 h-4 text-gray-400 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                     </div>
                   </a>
@@ -409,7 +521,9 @@ export function GitHubInfo() {
               Linked Issues ({githubInfo.linkedIssues.length})
             </label>
             {githubInfo.linkedIssues.length === 0 ? (
-              <p className="mt-2 text-sm text-gray-400">No linked issues found</p>
+              <p className="mt-2 text-sm text-gray-400">
+                No linked issues found
+              </p>
             ) : (
               <div className="mt-2 space-y-2">
                 {githubInfo.linkedIssues.map((issue) => (
@@ -423,10 +537,14 @@ export function GitHubInfo() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">#{issue.number}</span>
+                          <span className="text-sm font-medium text-gray-900">
+                            #{issue.number}
+                          </span>
                           <IssueStatusBadge state={issue.state} />
                         </div>
-                        <p className="text-sm text-gray-700 truncate mt-1">{issue.title}</p>
+                        <p className="text-sm text-gray-700 truncate mt-1">
+                          {issue.title}
+                        </p>
                         {issue.labels.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-2">
                             {issue.labels.slice(0, 3).map((label) => (
@@ -438,13 +556,25 @@ export function GitHubInfo() {
                               </span>
                             ))}
                             {issue.labels.length > 3 && (
-                              <span className="text-xs text-gray-500">+{issue.labels.length - 3} more</span>
+                              <span className="text-xs text-gray-500">
+                                +{issue.labels.length - 3} more
+                              </span>
                             )}
                           </div>
                         )}
                       </div>
-                      <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      <svg
+                        className="w-4 h-4 text-gray-400 flex-shrink-0"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
                       </svg>
                     </div>
                   </a>
@@ -460,7 +590,7 @@ export function GitHubInfo() {
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
           <p className="font-medium">Limited API access</p>
           <p className="text-xs mt-1">
-            Add a GitHub token for 5000 requests/hour instead of 60.{' '}
+            Add a GitHub token for 5000 requests/hour instead of 60.{" "}
             <button
               onClick={() => setShowTokenModal(true)}
               className="underline hover:no-underline"
@@ -471,7 +601,10 @@ export function GitHubInfo() {
         </div>
       )}
 
-      <GitHubTokenModal isOpen={showTokenModal} onClose={() => setShowTokenModal(false)} />
+      <GitHubTokenModal
+        isOpen={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+      />
     </div>
   );
 }

@@ -1,7 +1,13 @@
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 export function RepositoryBreadcrumb() {
-  const { repository, repositoryStack, navigateBack, navigateToRoot, isLoadingSubmodule } = useRepositoryStore();
+  const {
+    repository,
+    repositoryStack,
+    navigateBack,
+    navigateToRoot,
+    isLoadingSubmodule,
+  } = useRepositoryStore();
 
   // Don't show breadcrumb if we're at the root
   if (repositoryStack.length === 0 || !repository) {
@@ -35,8 +41,18 @@ export function RepositoryBreadcrumb() {
       {/* Intermediate repos in stack */}
       {repositoryStack.slice(1).map((item, index) => (
         <span key={item.path} className="flex items-center gap-1">
-          <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          <svg
+            className="w-4 h-4 text-teal-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 5l7 7-7 7"
+            />
           </svg>
           <button
             onClick={() => handleNavigateToIndex(index + 1)}
@@ -50,8 +66,18 @@ export function RepositoryBreadcrumb() {
 
       {/* Current repo (not clickable) */}
       <span className="flex items-center gap-1">
-        <svg className="w-4 h-4 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+        <svg
+          className="w-4 h-4 text-teal-400"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M9 5l7 7-7 7"
+          />
         </svg>
         <span className="font-medium text-teal-900">{repository.name}</span>
       </span>
@@ -62,8 +88,18 @@ export function RepositoryBreadcrumb() {
         disabled={isLoadingSubmodule}
         className="ml-auto flex items-center gap-1 px-2 py-1 text-teal-700 hover:bg-teal-100 rounded disabled:opacity-50"
       >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M10 19l-7-7m0 0l7-7m-7 7h18"
+          />
         </svg>
         Back
       </button>

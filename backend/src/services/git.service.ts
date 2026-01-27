@@ -1,7 +1,7 @@
-import simpleGit, { SimpleGit } from 'simple-git';
-import os from 'os';
-import path from 'path';
-import fs from 'fs/promises';
+import simpleGit, { SimpleGit } from "simple-git";
+import os from "os";
+import path from "path";
+import fs from "fs/promises";
 
 export interface Author {
   name: string;
@@ -10,7 +10,7 @@ export interface Author {
 
 export interface RefInfo {
   name: string;
-  type: 'branch' | 'tag' | 'remote';
+  type: "branch" | "tag" | "remote";
   isHead: boolean;
 }
 
@@ -65,7 +65,7 @@ export interface PaginatedCommits {
 export interface RepoStats {
   totalCommits: number;
   isLargeRepo: boolean; // > 10,000 commits
-  recommendedMode: 'full' | 'paginated' | 'simplified';
+  recommendedMode: "full" | "paginated" | "simplified";
 }
 
 export interface RepositoryMetadata {
@@ -81,7 +81,7 @@ export interface RepositoryMetadata {
 export interface FileDiff {
   path: string;
   oldPath?: string;
-  status: 'added' | 'deleted' | 'modified' | 'renamed' | 'copied';
+  status: "added" | "deleted" | "modified" | "renamed" | "copied";
   additions: number;
   deletions: number;
   binary: boolean;
@@ -109,7 +109,7 @@ export interface FileDiffDetail extends FileDiff {
 export interface TreeEntry {
   name: string;
   path: string;
-  type: 'file' | 'directory';
+  type: "file" | "directory";
   size?: number;
 }
 
@@ -208,41 +208,41 @@ export interface BranchLifespan {
   createdAt: string;
   mergedAt: string | null;
   lifespanDays: number | null;
-  status: 'active' | 'merged' | 'stale';
+  status: "active" | "merged" | "stale";
   commitCount: number;
 }
 
 function parseRefs(refsString: string): RefInfo[] {
-  if (!refsString || refsString.trim() === '') return [];
+  if (!refsString || refsString.trim() === "") return [];
 
   const refs: RefInfo[] = [];
-  const parts = refsString.split(',').map(s => s.trim());
+  const parts = refsString.split(",").map((s) => s.trim());
 
   for (const part of parts) {
-    if (part.startsWith('HEAD -> ')) {
+    if (part.startsWith("HEAD -> ")) {
       refs.push({
-        name: part.replace('HEAD -> ', ''),
-        type: 'branch',
+        name: part.replace("HEAD -> ", ""),
+        type: "branch",
         isHead: true,
       });
-    } else if (part === 'HEAD') {
+    } else if (part === "HEAD") {
       continue;
-    } else if (part.startsWith('tag: ')) {
+    } else if (part.startsWith("tag: ")) {
       refs.push({
-        name: part.replace('tag: ', ''),
-        type: 'tag',
+        name: part.replace("tag: ", ""),
+        type: "tag",
         isHead: false,
       });
-    } else if (part.startsWith('origin/')) {
+    } else if (part.startsWith("origin/")) {
       refs.push({
         name: part,
-        type: 'remote',
+        type: "remote",
         isHead: false,
       });
     } else if (part) {
       refs.push({
         name: part,
-        type: 'branch',
+        type: "branch",
         isHead: false,
       });
     }
@@ -282,7 +282,7 @@ class GitService {
   extractRepoName(url: string): string {
     // Extract repo name from URL
     const match = url.match(/\/([^\/]+?)(\.git)?$/);
-    return match ? match[1].replace('.git', '') : 'repository';
+    return match ? match[1].replace(".git", "") : "repository";
   }
 
   /**
@@ -294,14 +294,14 @@ class GitService {
       const urlObj = new URL(url);
 
       // Determine the auth format based on the host
-      if (urlObj.host.includes('gitlab')) {
+      if (urlObj.host.includes("gitlab")) {
         // GitLab uses oauth2:TOKEN format
-        urlObj.username = 'oauth2';
+        urlObj.username = "oauth2";
         urlObj.password = token;
       } else {
         // GitHub and others use TOKEN as username
         urlObj.username = token;
-        urlObj.password = '';
+        urlObj.password = "";
       }
 
       return urlObj.toString();
@@ -313,10 +313,10 @@ class GitService {
 
   async cloneRepository(
     url: string,
-    options: { shallow?: boolean; depth?: number; token?: string } = {}
+    options: { shallow?: boolean; depth?: number; token?: string } = {},
   ): Promise<string> {
     if (!this.validateGitUrl(url)) {
-      throw new Error('Invalid git repository URL');
+      throw new Error("Invalid git repository URL");
     }
 
     const { shallow = true, depth = 500, token } = options;
@@ -330,10 +330,10 @@ class GitService {
     const git = simpleGit();
 
     try {
-      const cloneArgs: string[] = ['--no-single-branch']; // Fetch all branches, not just default
+      const cloneArgs: string[] = ["--no-single-branch"]; // Fetch all branches, not just default
 
       if (shallow) {
-        cloneArgs.push('--depth', depth.toString());
+        cloneArgs.push("--depth", depth.toString());
       }
 
       // Use authenticated URL if token provided
@@ -350,14 +350,14 @@ class GitService {
 
       // Detect authentication errors and provide helpful message
       if (
-        errorMessage.includes('Authentication failed') ||
-        errorMessage.includes('could not read Username') ||
-        errorMessage.includes('terminal prompts disabled') ||
-        errorMessage.includes('401') ||
-        errorMessage.includes('403')
+        errorMessage.includes("Authentication failed") ||
+        errorMessage.includes("could not read Username") ||
+        errorMessage.includes("terminal prompts disabled") ||
+        errorMessage.includes("401") ||
+        errorMessage.includes("403")
       ) {
         throw new Error(
-          'AUTH_REQUIRED: This repository requires authentication. Please provide a personal access token.'
+          "AUTH_REQUIRED: This repository requires authentication. Please provide a personal access token.",
         );
       }
 
@@ -382,7 +382,7 @@ class GitService {
       this.getCurrentBranch(git),
     ]);
 
-    const name = repoPath.split('/').filter(Boolean).pop() || 'repository';
+    const name = repoPath.split("/").filter(Boolean).pop() || "repository";
 
     return {
       path: repoPath,
@@ -401,11 +401,11 @@ class GitService {
     const LARGE_REPO_THRESHOLD = 10000;
     const HUGE_REPO_THRESHOLD = 100000;
 
-    let recommendedMode: 'full' | 'paginated' | 'simplified' = 'full';
+    let recommendedMode: "full" | "paginated" | "simplified" = "full";
     if (totalCommits > HUGE_REPO_THRESHOLD) {
-      recommendedMode = 'simplified';
+      recommendedMode = "simplified";
     } else if (totalCommits > LARGE_REPO_THRESHOLD) {
-      recommendedMode = 'paginated';
+      recommendedMode = "paginated";
     }
 
     return {
@@ -425,7 +425,7 @@ class GitService {
       this.getRepoStats(repoPath),
     ]);
 
-    const name = repoPath.split('/').filter(Boolean).pop() || 'repository';
+    const name = repoPath.split("/").filter(Boolean).pop() || "repository";
 
     return {
       path: repoPath,
@@ -439,18 +439,18 @@ class GitService {
 
   private async getCommits(git: SimpleGit): Promise<Commit[]> {
     const log = await git.log({
-      '--all': null,
-      '--date-order': null,
+      "--all": null,
+      "--date-order": null,
       format: {
-        hash: '%H',
-        shortHash: '%h',
-        message: '%s',
-        body: '%b',
-        authorName: '%an',
-        authorEmail: '%ae',
-        date: '%aI',
-        parents: '%P',
-        refs: '%D',
+        hash: "%H",
+        shortHash: "%h",
+        message: "%s",
+        body: "%b",
+        authorName: "%an",
+        authorEmail: "%ae",
+        date: "%aI",
+        parents: "%P",
+        refs: "%D",
       },
     });
 
@@ -464,20 +464,20 @@ class GitService {
         email: entry.authorEmail,
       },
       date: entry.date,
-      parents: entry.parents ? entry.parents.split(' ').filter(Boolean) : [],
+      parents: entry.parents ? entry.parents.split(" ").filter(Boolean) : [],
       refs: parseRefs(entry.refs),
     }));
   }
 
   private async getBranches(git: SimpleGit): Promise<Branch[]> {
-    const result = await git.branch(['-a', '-v']);
+    const result = await git.branch(["-a", "-v"]);
     const branches: Branch[] = [];
 
     for (const [name, data] of Object.entries(result.branches)) {
       branches.push({
         name: data.name,
         commit: data.commit,
-        isRemote: name.startsWith('remotes/'),
+        isRemote: name.startsWith("remotes/"),
         isHead: data.current,
       });
     }
@@ -488,15 +488,15 @@ class GitService {
   private async getTags(git: SimpleGit): Promise<Tag[]> {
     try {
       // Use show-ref --tags for O(1) instead of O(N) revparse calls
-      const result = await git.raw(['show-ref', '--tags']);
+      const result = await git.raw(["show-ref", "--tags"]);
       return result
         .trim()
-        .split('\n')
+        .split("\n")
         .filter(Boolean)
         .map((line) => {
-          const [commit, ref] = line.split(' ');
+          const [commit, ref] = line.split(" ");
           return {
-            name: ref.replace('refs/tags/', ''),
+            name: ref.replace("refs/tags/", ""),
             commit,
           };
         });
@@ -508,16 +508,16 @@ class GitService {
 
   private async getCurrentBranch(git: SimpleGit): Promise<string> {
     try {
-      const result = await git.revparse(['--abbrev-ref', 'HEAD']);
+      const result = await git.revparse(["--abbrev-ref", "HEAD"]);
       return result.trim();
     } catch {
-      return 'HEAD';
+      return "HEAD";
     }
   }
 
   private async getTotalCommitCount(git: SimpleGit): Promise<number> {
     try {
-      const result = await git.raw(['rev-list', '--all', '--count']);
+      const result = await git.raw(["rev-list", "--all", "--count"]);
       return parseInt(result.trim(), 10);
     } catch {
       return 0;
@@ -526,21 +526,29 @@ class GitService {
 
   async getCommitsPaginated(
     repoPath: string,
-    options: PaginationOptions = {}
+    options: PaginationOptions = {},
   ): Promise<PaginatedCommits> {
     const git = this.getGit(repoPath);
-    const { maxCount = 500, skip = 0, firstParent = false, since, until, branch, authors } = options;
+    const {
+      maxCount = 500,
+      skip = 0,
+      firstParent = false,
+      since,
+      until,
+      branch,
+      authors,
+    } = options;
 
     const format = {
-      hash: '%H',
-      shortHash: '%h',
-      message: '%s',
-      body: '%b',
-      authorName: '%an',
-      authorEmail: '%ae',
-      date: '%aI',
-      parents: '%P',
-      refs: '%D',
+      hash: "%H",
+      shortHash: "%h",
+      message: "%s",
+      body: "%b",
+      authorName: "%an",
+      authorEmail: "%ae",
+      date: "%aI",
+      parents: "%P",
+      refs: "%D",
     };
 
     type LogEntry = {
@@ -557,9 +565,9 @@ class GitService {
 
     // Build log options with optional date and branch filters
     const logOptions: Record<string, any> = {
-      '--date-order': null,
+      "--date-order": null,
       maxCount: maxCount + 1,
-      '--skip': skip,
+      "--skip": skip,
       format,
     };
 
@@ -567,19 +575,19 @@ class GitService {
     if (branch) {
       logOptions[branch] = null;
     } else {
-      logOptions['--all'] = null;
+      logOptions["--all"] = null;
     }
 
     if (firstParent) {
-      logOptions['--first-parent'] = null;
+      logOptions["--first-parent"] = null;
     }
 
     if (since) {
-      logOptions['--since'] = since;
+      logOptions["--since"] = since;
     }
 
     if (until) {
-      logOptions['--until'] = until;
+      logOptions["--until"] = until;
     }
 
     // Add author filters (multiple --author flags are OR'd together)
@@ -591,11 +599,11 @@ class GitService {
 
     // Get total count with filters
     const getTotalWithFilters = async (): Promise<number> => {
-      const args = ['rev-list', '--count'];
+      const args = ["rev-list", "--count"];
       if (branch) {
         args.push(branch);
       } else {
-        args.push('--all');
+        args.push("--all");
       }
       if (since) args.push(`--since=${since}`);
       if (until) args.push(`--until=${until}`);
@@ -618,19 +626,21 @@ class GitService {
     ]);
 
     const hasMore = log.all.length > maxCount;
-    const commits = (log.all as unknown as LogEntry[]).slice(0, maxCount).map((entry) => ({
-      hash: entry.hash,
-      shortHash: entry.shortHash,
-      message: entry.message,
-      body: entry.body,
-      author: {
-        name: entry.authorName,
-        email: entry.authorEmail,
-      },
-      date: entry.date,
-      parents: entry.parents ? entry.parents.split(' ').filter(Boolean) : [],
-      refs: parseRefs(entry.refs),
-    }));
+    const commits = (log.all as unknown as LogEntry[])
+      .slice(0, maxCount)
+      .map((entry) => ({
+        hash: entry.hash,
+        shortHash: entry.shortHash,
+        message: entry.message,
+        body: entry.body,
+        author: {
+          name: entry.authorName,
+          email: entry.authorEmail,
+        },
+        date: entry.date,
+        parents: entry.parents ? entry.parents.split(" ").filter(Boolean) : [],
+        refs: parseRefs(entry.refs),
+      }));
 
     return { commits, total, hasMore };
   }
@@ -638,7 +648,7 @@ class GitService {
   // Generator for streaming commits in chunks
   async *streamCommits(
     repoPath: string,
-    options: { chunkSize?: number; firstParent?: boolean } = {}
+    options: { chunkSize?: number; firstParent?: boolean } = {},
   ): AsyncGenerator<{ commits: Commit[]; progress: number; total: number }> {
     const git = this.getGit(repoPath);
     const { chunkSize = 500, firstParent = false } = options;
@@ -654,7 +664,10 @@ class GitService {
 
       yield {
         commits: result.commits,
-        progress: Math.min(100, Math.round(((skip + result.commits.length) / total) * 100)),
+        progress: Math.min(
+          100,
+          Math.round(((skip + result.commits.length) / total) * 100),
+        ),
         total,
       };
 
@@ -665,15 +678,18 @@ class GitService {
     }
   }
 
-  async getCommitDetails(repoPath: string, hash: string): Promise<Commit | null> {
+  async getCommitDetails(
+    repoPath: string,
+    hash: string,
+  ): Promise<Commit | null> {
     const git = this.getGit(repoPath);
 
     try {
       // Use a unique delimiter to separate fields reliably
-      const DELIM = '<<<GITVIS_DELIM>>>';
+      const DELIM = "<<<GITVIS_DELIM>>>";
       const result = await git.raw([
-        'show',
-        '--no-patch',
+        "show",
+        "--no-patch",
         `--format=%H${DELIM}%h${DELIM}%s${DELIM}%b${DELIM}%an${DELIM}%ae${DELIM}%aI${DELIM}%P${DELIM}%D`,
         hash,
       ]);
@@ -681,7 +697,17 @@ class GitService {
       const parts = result.trim().split(DELIM);
       if (parts.length < 8) return null;
 
-      const [fullHash, shortHash, message, body, authorName, authorEmail, date, parents, refs = ''] = parts;
+      const [
+        fullHash,
+        shortHash,
+        message,
+        body,
+        authorName,
+        authorEmail,
+        date,
+        parents,
+        refs = "",
+      ] = parts;
 
       return {
         hash: fullHash,
@@ -693,25 +719,28 @@ class GitService {
           email: authorEmail,
         },
         date: date,
-        parents: parents ? parents.split(' ').filter(Boolean) : [],
+        parents: parents ? parents.split(" ").filter(Boolean) : [],
         refs: parseRefs(refs),
       };
     } catch (error) {
-      console.error('getCommitDetails error:', error);
+      console.error("getCommitDetails error:", error);
       return null;
     }
   }
 
   // Empty tree hash used for root commits (first commit has no parent)
-  private readonly EMPTY_TREE_HASH = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+  private readonly EMPTY_TREE_HASH = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
-  async getCommitDiffStats(repoPath: string, commitHash: string): Promise<DiffStats> {
+  async getCommitDiffStats(
+    repoPath: string,
+    commitHash: string,
+  ): Promise<DiffStats> {
     const git = this.getGit(repoPath);
 
     // Get parent commit hash (empty tree for root commit)
     let parentHash = this.EMPTY_TREE_HASH;
     try {
-      const parent = await git.raw(['rev-parse', `${commitHash}^`]);
+      const parent = await git.raw(["rev-parse", `${commitHash}^`]);
       parentHash = parent.trim();
     } catch {
       // Root commit - use empty tree
@@ -719,30 +748,30 @@ class GitService {
 
     // Get numstat for additions/deletions count
     const numstat = await git.raw([
-      'diff',
-      '--numstat',
-      '--find-renames',
-      '--find-copies',
+      "diff",
+      "--numstat",
+      "--find-renames",
+      "--find-copies",
       parentHash,
       commitHash,
     ]);
 
     // Get name-status for file status (A/D/M/R/C)
     const nameStatus = await git.raw([
-      'diff',
-      '--name-status',
-      '--find-renames',
-      '--find-copies',
+      "diff",
+      "--name-status",
+      "--find-renames",
+      "--find-copies",
       parentHash,
       commitHash,
     ]);
 
     // Parse name-status to get file statuses
     const statusMap = new Map<string, { status: string; oldPath?: string }>();
-    for (const line of nameStatus.trim().split('\n').filter(Boolean)) {
-      const parts = line.split('\t');
+    for (const line of nameStatus.trim().split("\n").filter(Boolean)) {
+      const parts = line.split("\t");
       const status = parts[0];
-      if (status.startsWith('R') || status.startsWith('C')) {
+      if (status.startsWith("R") || status.startsWith("C")) {
         // Rename or copy: R100\toldPath\tnewPath
         statusMap.set(parts[2], { status: status[0], oldPath: parts[1] });
       } else {
@@ -755,18 +784,19 @@ class GitService {
     let totalAdditions = 0;
     let totalDeletions = 0;
 
-    for (const line of numstat.trim().split('\n').filter(Boolean)) {
-      const parts = line.split('\t');
-      const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
-      const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
-      const binary = parts[0] === '-' && parts[1] === '-';
+    for (const line of numstat.trim().split("\n").filter(Boolean)) {
+      const parts = line.split("\t");
+      const additions = parts[0] === "-" ? 0 : parseInt(parts[0], 10);
+      const deletions = parts[1] === "-" ? 0 : parseInt(parts[1], 10);
+      const binary = parts[0] === "-" && parts[1] === "-";
 
       // Handle renamed files (path format: oldPath => newPath or just newPath)
       let filePath = parts[2];
-      if (filePath.includes(' => ')) {
+      if (filePath.includes(" => ")) {
         // Format: path/to/{old => new}/file.txt or old.txt => new.txt
-        const match = filePath.match(/^(.*)?\{(.+) => (.+)\}(.*)$/) ||
-                      filePath.match(/^(.+) => (.+)$/);
+        const match =
+          filePath.match(/^(.*)?\{(.+) => (.+)\}(.*)$/) ||
+          filePath.match(/^(.+) => (.+)$/);
         if (match) {
           if (match.length === 5) {
             // {old => new} format
@@ -778,14 +808,14 @@ class GitService {
         }
       }
 
-      const statusInfo = statusMap.get(filePath) || { status: 'M' };
+      const statusInfo = statusMap.get(filePath) || { status: "M" };
       const statusChar = statusInfo.status;
 
-      let status: FileDiff['status'] = 'modified';
-      if (statusChar === 'A') status = 'added';
-      else if (statusChar === 'D') status = 'deleted';
-      else if (statusChar === 'R') status = 'renamed';
-      else if (statusChar === 'C') status = 'copied';
+      let status: FileDiff["status"] = "modified";
+      if (statusChar === "A") status = "added";
+      else if (statusChar === "D") status = "deleted";
+      else if (statusChar === "R") status = "renamed";
+      else if (statusChar === "C") status = "copied";
 
       files.push({
         path: filePath,
@@ -806,14 +836,14 @@ class GitService {
   async getFileDiff(
     repoPath: string,
     commitHash: string,
-    filePath: string
+    filePath: string,
   ): Promise<FileDiffDetail> {
     const git = this.getGit(repoPath);
 
     // Get parent hash
     let parentHash = this.EMPTY_TREE_HASH;
     try {
-      const parent = await git.raw(['rev-parse', `${commitHash}^`]);
+      const parent = await git.raw(["rev-parse", `${commitHash}^`]);
       parentHash = parent.trim();
     } catch {
       // Root commit
@@ -821,23 +851,21 @@ class GitService {
 
     // Get file status and stats
     const stats = await this.getCommitDiffStats(repoPath, commitHash);
-    const fileStats = stats.files.find(f => f.path === filePath);
+    const fileStats = stats.files.find((f) => f.path === filePath);
 
     if (!fileStats) {
       throw new Error(`File ${filePath} not found in commit ${commitHash}`);
     }
 
     // Get unified diff for the file
-    const diffPath = fileStats.oldPath
-      ? `${fileStats.oldPath}`
-      : filePath;
+    const diffPath = fileStats.oldPath ? `${fileStats.oldPath}` : filePath;
 
     const diffOutput = await git.raw([
-      'diff',
-      '--unified=3',
+      "diff",
+      "--unified=3",
       parentHash,
       commitHash,
-      '--',
+      "--",
       diffPath,
       ...(fileStats.oldPath ? [filePath] : []),
     ]);
@@ -845,14 +873,17 @@ class GitService {
     // Parse hunks from unified diff
     const hunks: DiffHunk[] = [];
     const hunkRegex = /@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/g;
-    const lines = diffOutput.split('\n');
+    const lines = diffOutput.split("\n");
 
     let match: RegExpExecArray | null;
     let lastIndex = 0;
     const hunkMatches: { index: number; match: RegExpExecArray }[] = [];
 
     while ((match = hunkRegex.exec(diffOutput)) !== null) {
-      hunkMatches.push({ index: match.index, match: { ...match } as RegExpExecArray });
+      hunkMatches.push({
+        index: match.index,
+        match: { ...match } as RegExpExecArray,
+      });
     }
 
     for (let i = 0; i < hunkMatches.length; i++) {
@@ -863,10 +894,11 @@ class GitService {
       const newLines = match[4] ? parseInt(match[4], 10) : 1;
 
       // Find content between this hunk header and the next (or end)
-      const startIdx = diffOutput.indexOf('\n', hunkMatches[i].index) + 1;
-      const endIdx = i + 1 < hunkMatches.length
-        ? hunkMatches[i + 1].index
-        : diffOutput.length;
+      const startIdx = diffOutput.indexOf("\n", hunkMatches[i].index) + 1;
+      const endIdx =
+        i + 1 < hunkMatches.length
+          ? hunkMatches[i + 1].index
+          : diffOutput.length;
 
       const content = diffOutput.slice(startIdx, endIdx).trimEnd();
 
@@ -888,21 +920,21 @@ class GitService {
   async getFileTree(
     repoPath: string,
     commitHash: string,
-    treePath: string = ''
+    treePath: string = "",
   ): Promise<TreeEntry[]> {
     const git = this.getGit(repoPath);
 
     // Use ls-tree to list directory contents
     // -l flag includes file size
-    const args = ['ls-tree', '-l', commitHash];
+    const args = ["ls-tree", "-l", commitHash];
     if (treePath) {
-      args.push(treePath + '/');
+      args.push(treePath + "/");
     }
 
     const result = await git.raw(args);
     const entries: TreeEntry[] = [];
 
-    for (const line of result.trim().split('\n').filter(Boolean)) {
+    for (const line of result.trim().split("\n").filter(Boolean)) {
       // Format: mode type hash size\tpath
       // Example: 100644 blob abc123 1234\tsrc/file.ts
       // For trees (dirs): 040000 tree abc123 -\tsrc/components
@@ -910,20 +942,20 @@ class GitService {
       if (!match) continue;
 
       const [, mode, type, hash, size, fullPath] = match;
-      const name = fullPath.split('/').pop() || fullPath;
+      const name = fullPath.split("/").pop() || fullPath;
 
       entries.push({
         name,
         path: fullPath,
-        type: type === 'tree' ? 'directory' : 'file',
-        size: size === '-' ? undefined : parseInt(size, 10),
+        type: type === "tree" ? "directory" : "file",
+        size: size === "-" ? undefined : parseInt(size, 10),
       });
     }
 
     // Sort: directories first, then alphabetically
     entries.sort((a, b) => {
       if (a.type !== b.type) {
-        return a.type === 'directory' ? -1 : 1;
+        return a.type === "directory" ? -1 : 1;
       }
       return a.name.localeCompare(b.name);
     });
@@ -934,7 +966,7 @@ class GitService {
   async getFileContent(
     repoPath: string,
     commitHash: string,
-    filePath: string
+    filePath: string,
   ): Promise<FileContent> {
     const git = this.getGit(repoPath);
 
@@ -946,19 +978,19 @@ class GitService {
       const size = await this.getFileSize(git, commitHash, filePath);
       return {
         path: filePath,
-        content: '',
+        content: "",
         size,
         binary: true,
       };
     }
 
     // Get file content using git show
-    const content = await git.raw(['show', `${commitHash}:${filePath}`]);
+    const content = await git.raw(["show", `${commitHash}:${filePath}`]);
 
     return {
       path: filePath,
       content,
-      size: Buffer.byteLength(content, 'utf-8'),
+      size: Buffer.byteLength(content, "utf-8"),
       binary: false,
     };
   }
@@ -966,20 +998,20 @@ class GitService {
   private async isFileBinary(
     git: SimpleGit,
     commitHash: string,
-    filePath: string
+    filePath: string,
   ): Promise<boolean> {
     try {
       // Use git diff to check if file is binary
       const result = await git.raw([
-        'diff',
-        '--numstat',
+        "diff",
+        "--numstat",
         this.EMPTY_TREE_HASH,
         commitHash,
-        '--',
+        "--",
         filePath,
       ]);
       // Binary files show "-\t-\tfilepath"
-      return result.startsWith('-\t-');
+      return result.startsWith("-\t-");
     } catch {
       return false;
     }
@@ -988,10 +1020,14 @@ class GitService {
   private async getFileSize(
     git: SimpleGit,
     commitHash: string,
-    filePath: string
+    filePath: string,
   ): Promise<number> {
     try {
-      const result = await git.raw(['cat-file', '-s', `${commitHash}:${filePath}`]);
+      const result = await git.raw([
+        "cat-file",
+        "-s",
+        `${commitHash}:${filePath}`,
+      ]);
       return parseInt(result.trim(), 10);
     } catch {
       return 0;
@@ -1004,12 +1040,12 @@ class GitService {
     const git = this.getGit(repoPath);
 
     // Get commit counts per author using shortlog
-    const shortlog = await git.raw(['shortlog', '-sne', '--all']);
+    const shortlog = await git.raw(["shortlog", "-sne", "--all"]);
 
     // Parse shortlog output: "  123\tAuthor Name <email@example.com>"
     const contributors = new Map<string, ContributorStats>();
 
-    for (const line of shortlog.trim().split('\n').filter(Boolean)) {
+    for (const line of shortlog.trim().split("\n").filter(Boolean)) {
       const match = line.match(/^\s*(\d+)\t(.+)\s<(.+)>$/);
       if (match) {
         const [, count, name, email] = match;
@@ -1019,22 +1055,18 @@ class GitService {
           commitCount: parseInt(count, 10),
           additions: 0,
           deletions: 0,
-          firstCommit: '',
-          lastCommit: '',
+          firstCommit: "",
+          lastCommit: "",
         });
       }
     }
 
     // Get first and last commit dates per author
-    const dateLog = await git.raw([
-      'log',
-      '--all',
-      '--format=%ae|%aI',
-    ]);
+    const dateLog = await git.raw(["log", "--all", "--format=%ae|%aI"]);
 
     const authorDates = new Map<string, string[]>();
-    for (const line of dateLog.trim().split('\n').filter(Boolean)) {
-      const [email, date] = line.split('|');
+    for (const line of dateLog.trim().split("\n").filter(Boolean)) {
+      const [email, date] = line.split("|");
       if (!authorDates.has(email)) {
         authorDates.set(email, []);
       }
@@ -1054,18 +1086,19 @@ class GitService {
     // Get line stats per author (can be slow for large repos, so we sample)
     try {
       const statLog = await git.raw([
-        'log',
-        '--all',
-        '--shortstat',
-        '--format=%ae',
-        '-n', '1000', // Limit to recent 1000 commits for performance
+        "log",
+        "--all",
+        "--shortstat",
+        "--format=%ae",
+        "-n",
+        "1000", // Limit to recent 1000 commits for performance
       ]);
 
-      let currentEmail = '';
-      for (const line of statLog.split('\n')) {
-        if (line.includes('@')) {
+      let currentEmail = "";
+      for (const line of statLog.split("\n")) {
+        if (line.includes("@")) {
           currentEmail = line.trim();
-        } else if (line.includes('insertion') || line.includes('deletion')) {
+        } else if (line.includes("insertion") || line.includes("deletion")) {
           const insertMatch = line.match(/(\d+) insertion/);
           const deleteMatch = line.match(/(\d+) deletion/);
 
@@ -1086,13 +1119,13 @@ class GitService {
 
     // Sort by commit count descending
     return Array.from(contributors.values()).sort(
-      (a, b) => b.commitCount - a.commitCount
+      (a, b) => b.commitCount - a.commitCount,
     );
   }
 
   async getActivityHeatmap(
     repoPath: string,
-    days: number = 365
+    days: number = 365,
   ): Promise<ActivityDay[]> {
     const git = this.getGit(repoPath);
 
@@ -1103,17 +1136,17 @@ class GitService {
 
     // Get all commit dates
     const log = await git.raw([
-      'log',
-      '--all',
-      '--format=%aI',
+      "log",
+      "--all",
+      "--format=%aI",
       `--since=${startDate.toISOString()}`,
     ]);
 
     // Count commits per day
     const dayCounts = new Map<string, number>();
 
-    for (const line of log.trim().split('\n').filter(Boolean)) {
-      const date = line.split('T')[0]; // Extract YYYY-MM-DD
+    for (const line of log.trim().split("\n").filter(Boolean)) {
+      const date = line.split("T")[0]; // Extract YYYY-MM-DD
       dayCounts.set(date, (dayCounts.get(date) || 0) + 1);
     }
 
@@ -1122,7 +1155,7 @@ class GitService {
     const currentDate = new Date(startDate);
 
     while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = currentDate.toISOString().split("T")[0];
       result.push({
         date: dateStr,
         count: dayCounts.get(dateStr) || 0,
@@ -1135,13 +1168,15 @@ class GitService {
 
   // ===== REMOTE METHODS =====
 
-  async getRemoteUrls(repoPath: string): Promise<{ name: string; url: string }[]> {
+  async getRemoteUrls(
+    repoPath: string,
+  ): Promise<{ name: string; url: string }[]> {
     const git = this.getGit(repoPath);
     try {
       const remotes = await git.getRemotes(true);
-      return remotes.map(r => ({
+      return remotes.map((r) => ({
         name: r.name,
-        url: r.refs.fetch || r.refs.push || '',
+        url: r.refs.fetch || r.refs.push || "",
       }));
     } catch {
       return [];
@@ -1152,7 +1187,7 @@ class GitService {
 
   async hasSubmodules(repoPath: string): Promise<boolean> {
     try {
-      await fs.access(path.join(repoPath, '.gitmodules'));
+      await fs.access(path.join(repoPath, ".gitmodules"));
       return true;
     } catch {
       return false;
@@ -1172,10 +1207,10 @@ class GitService {
     let configOutput: string;
     try {
       configOutput = await git.raw([
-        'config',
-        '--file',
-        '.gitmodules',
-        '--list',
+        "config",
+        "--file",
+        ".gitmodules",
+        "--list",
       ]);
     } catch {
       return [];
@@ -1189,7 +1224,7 @@ class GitService {
       { path?: string; url?: string; branch?: string }
     >();
 
-    for (const line of configOutput.trim().split('\n').filter(Boolean)) {
+    for (const line of configOutput.trim().split("\n").filter(Boolean)) {
       const match = line.match(/^submodule\.([^.]+)\.(\w+)=(.+)$/);
       if (match) {
         const [, name, key, value] = match;
@@ -1197,24 +1232,27 @@ class GitService {
           submoduleMap.set(name, {});
         }
         const sub = submoduleMap.get(name)!;
-        if (key === 'path') sub.path = value;
-        else if (key === 'url') sub.url = value;
-        else if (key === 'branch') sub.branch = value;
+        if (key === "path") sub.path = value;
+        else if (key === "url") sub.url = value;
+        else if (key === "branch") sub.branch = value;
       }
     }
 
     // Get submodule status for current commits
-    let statusOutput = '';
+    let statusOutput = "";
     try {
-      statusOutput = await git.raw(['submodule', 'status']);
+      statusOutput = await git.raw(["submodule", "status"]);
     } catch {
       // Submodule status failed
     }
 
     // Parse status: " <commit> <path> (<desc>)" or "-<commit> <path>" (not initialized)
-    const statusMap = new Map<string, { commit: string; initialized: boolean }>();
-    for (const line of statusOutput.trim().split('\n').filter(Boolean)) {
-      const initialized = !line.startsWith('-');
+    const statusMap = new Map<
+      string,
+      { commit: string; initialized: boolean }
+    >();
+    for (const line of statusOutput.trim().split("\n").filter(Boolean)) {
+      const initialized = !line.startsWith("-");
       const match = line.match(/^[-+ ]?([a-f0-9]+)\s+(\S+)/);
       if (match) {
         statusMap.set(match[2], {
@@ -1233,7 +1271,7 @@ class GitService {
           name,
           path: config.path,
           url: config.url,
-          currentCommit: status?.commit || '',
+          currentCommit: status?.commit || "",
           initialized: status?.initialized ?? false,
         });
       }
@@ -1248,11 +1286,11 @@ class GitService {
    */
   async loadSubmoduleRepository(
     repoPath: string,
-    submodulePath: string
+    submodulePath: string,
   ): Promise<string> {
     // Get submodule info
     const submodules = await this.getSubmodules(repoPath);
-    const submodule = submodules.find(s => s.path === submodulePath);
+    const submodule = submodules.find((s) => s.path === submodulePath);
 
     if (!submodule) {
       throw new Error(`Submodule not found: ${submodulePath}`);
@@ -1261,7 +1299,7 @@ class GitService {
     if (!submodule.initialized) {
       throw new Error(
         `Submodule "${submodulePath}" is not initialized. ` +
-        `Run "git submodule update --init ${submodulePath}" to initialize it.`
+          `Run "git submodule update --init ${submodulePath}" to initialize it.`,
       );
     }
 
@@ -1269,7 +1307,9 @@ class GitService {
     const isValid = await this.validateRepository(fullPath);
 
     if (!isValid) {
-      throw new Error(`Submodule at "${submodulePath}" is not a valid git repository.`);
+      throw new Error(
+        `Submodule at "${submodulePath}" is not a valid git repository.`,
+      );
     }
 
     return fullPath;
@@ -1280,81 +1320,90 @@ class GitService {
   async compareBranches(
     repoPath: string,
     baseBranch: string,
-    compareBranch: string
+    compareBranch: string,
   ): Promise<BranchComparison> {
     const git = this.getGit(repoPath);
 
     // Get commits ahead (in compare but not in base)
     const aheadResult = await git.raw([
-      'log',
-      '--oneline',
+      "log",
+      "--oneline",
       `${baseBranch}..${compareBranch}`,
-      '--format=%H|%h|%s|%an|%ae|%aI|%P|%D',
+      "--format=%H|%h|%s|%an|%ae|%aI|%P|%D",
     ]);
 
     // Get commits behind (in base but not in compare)
     const behindResult = await git.raw([
-      'log',
-      '--oneline',
+      "log",
+      "--oneline",
       `${compareBranch}..${baseBranch}`,
-      '--format=%H|%h|%s|%an|%ae|%aI|%P|%D',
+      "--format=%H|%h|%s|%an|%ae|%aI|%P|%D",
     ]);
 
     const parseCommitLine = (line: string): Commit | null => {
-      const parts = line.split('|');
+      const parts = line.split("|");
       if (parts.length < 7) return null;
-      const [hash, shortHash, message, authorName, authorEmail, date, parents, refs = ''] = parts;
+      const [
+        hash,
+        shortHash,
+        message,
+        authorName,
+        authorEmail,
+        date,
+        parents,
+        refs = "",
+      ] = parts;
       return {
         hash,
         shortHash,
         message,
-        body: '',
+        body: "",
         author: { name: authorName, email: authorEmail },
         date,
-        parents: parents ? parents.split(' ').filter(Boolean) : [],
+        parents: parents ? parents.split(" ").filter(Boolean) : [],
         refs: parseRefs(refs),
       };
     };
 
     const aheadCommits = aheadResult
       .trim()
-      .split('\n')
+      .split("\n")
       .filter(Boolean)
       .map(parseCommitLine)
       .filter((c): c is Commit => c !== null);
 
     const behindCommits = behindResult
       .trim()
-      .split('\n')
+      .split("\n")
       .filter(Boolean)
       .map(parseCommitLine)
       .filter((c): c is Commit => c !== null);
 
     // Get diff stats between branches
     const numstat = await git.raw([
-      'diff',
-      '--numstat',
-      '--find-renames',
-      '--find-copies',
+      "diff",
+      "--numstat",
+      "--find-renames",
+      "--find-copies",
       baseBranch,
       compareBranch,
     ]);
 
     const nameStatus = await git.raw([
-      'diff',
-      '--name-status',
-      '--find-renames',
-      '--find-copies',
+      "diff",
+      "--name-status",
+      "--find-renames",
+      "--find-copies",
       baseBranch,
       compareBranch,
     ]);
 
     // Parse name-status
     const statusMap = new Map<string, { status: string; oldPath?: string }>();
-    for (const line of nameStatus.trim().split('\n').filter(Boolean)) {
-      const parts = line.split('\t');
+    for (const line of nameStatus.trim().split("\n").filter(Boolean)) {
+      const parts = line.split("\t");
       const status = parts[0];
-      if (status.startsWith('R') || status.startsWith('C')) {
+      if (status.startsWith("R") || status.startsWith("C")) {
         statusMap.set(parts[2], { status: status[0], oldPath: parts[1] });
       } else {
         statusMap.set(parts[1], { status: status[0] });
@@ -1366,16 +1415,17 @@ class GitService {
     let totalAdditions = 0;
     let totalDeletions = 0;
 
-    for (const line of numstat.trim().split('\n').filter(Boolean)) {
-      const parts = line.split('\t');
-      const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10);
-      const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10);
-      const binary = parts[0] === '-' && parts[1] === '-';
+    for (const line of numstat.trim().split("\n").filter(Boolean)) {
+      const parts = line.split("\t");
+      const additions = parts[0] === "-" ? 0 : parseInt(parts[0], 10);
+      const deletions = parts[1] === "-" ? 0 : parseInt(parts[1], 10);
+      const binary = parts[0] === "-" && parts[1] === "-";
 
       let filePath = parts[2];
-      if (filePath.includes(' => ')) {
-        const match = filePath.match(/^(.*)?\{(.+) => (.+)\}(.*)$/) ||
-                      filePath.match(/^(.+) => (.+)$/);
+      if (filePath.includes(" => ")) {
+        const match =
+          filePath.match(/^(.*)?\{(.+) => (.+)\}(.*)$/) ||
+          filePath.match(/^(.+) => (.+)$/);
         if (match) {
           if (match.length === 5) {
             filePath = match[1] + match[3] + match[4];
@@ -1385,14 +1435,14 @@ class GitService {
         }
       }
 
-      const statusInfo = statusMap.get(filePath) || { status: 'M' };
+      const statusInfo = statusMap.get(filePath) || { status: "M" };
       const statusChar = statusInfo.status;
 
-      let status: FileDiff['status'] = 'modified';
-      if (statusChar === 'A') status = 'added';
-      else if (statusChar === 'D') status = 'deleted';
-      else if (statusChar === 'R') status = 'renamed';
-      else if (statusChar === 'C') status = 'copied';
+      let status: FileDiff["status"] = "modified";
+      if (statusChar === "A") status = "added";
+      else if (statusChar === "D") status = "deleted";
+      else if (statusChar === "R") status = "renamed";
+      else if (statusChar === "C") status = "copied";
 
       files.push({
         path: filePath,
@@ -1422,46 +1472,53 @@ class GitService {
 
   // ===== CODE CHURN ANALYSIS =====
 
-  async getCodeChurn(repoPath: string, limit: number = 50): Promise<FileChurnStats[]> {
+  async getCodeChurn(
+    repoPath: string,
+    limit: number = 50,
+  ): Promise<FileChurnStats[]> {
     const git = this.getGit(repoPath);
 
     // Get file changes with stats
     const log = await git.raw([
-      'log',
-      '--all',
-      '--format=%H|%ae|%aI',
-      '--numstat',
-      '-n', '5000', // Limit for performance
+      "log",
+      "--all",
+      "--format=%H|%ae|%aI",
+      "--numstat",
+      "-n",
+      "5000", // Limit for performance
     ]);
 
     // Parse and aggregate file stats
-    const fileStats = new Map<string, {
-      changeCount: number;
-      additions: number;
-      deletions: number;
-      authors: Set<string>;
-      lastModified: string;
-    }>();
+    const fileStats = new Map<
+      string,
+      {
+        changeCount: number;
+        additions: number;
+        deletions: number;
+        authors: Set<string>;
+        lastModified: string;
+      }
+    >();
 
-    let currentAuthor = '';
-    let currentDate = '';
+    let currentAuthor = "";
+    let currentDate = "";
 
-    for (const line of log.split('\n')) {
-      if (line.includes('|')) {
+    for (const line of log.split("\n")) {
+      if (line.includes("|")) {
         // Commit line: hash|author|date
-        const parts = line.split('|');
+        const parts = line.split("|");
         if (parts.length >= 3) {
           currentAuthor = parts[1];
           currentDate = parts[2];
         }
       } else if (line.match(/^\d+\t\d+\t/)) {
         // Numstat line: additions\tdeletions\tfilepath
-        const parts = line.split('\t');
+        const parts = line.split("\t");
         const additions = parseInt(parts[0], 10) || 0;
         const deletions = parseInt(parts[1], 10) || 0;
         const filePath = parts[2];
 
-        if (filePath && !filePath.includes(' => ')) {
+        if (filePath && !filePath.includes(" => ")) {
           if (!fileStats.has(filePath)) {
             fileStats.set(filePath, {
               changeCount: 0,
@@ -1490,9 +1547,16 @@ class GitService {
 
     for (const [path, stats] of fileStats) {
       // Churn score: weighted combination of change frequency, author count, and recency
-      const daysSinceModified = Math.max(1, (now.getTime() - new Date(stats.lastModified).getTime()) / (1000 * 60 * 60 * 24));
+      const daysSinceModified = Math.max(
+        1,
+        (now.getTime() - new Date(stats.lastModified).getTime()) /
+          (1000 * 60 * 60 * 24),
+      );
       const recencyScore = Math.min(1, 30 / daysSinceModified); // Higher if modified recently
-      const churnScore = (stats.changeCount * 0.6) + (stats.authors.size * 0.2 * 10) + (recencyScore * 0.2 * 100);
+      const churnScore =
+        stats.changeCount * 0.6 +
+        stats.authors.size * 0.2 * 10 +
+        recencyScore * 0.2 * 100;
 
       result.push({
         path,
@@ -1506,35 +1570,40 @@ class GitService {
     }
 
     // Sort by churn score and limit
-    return result
-      .sort((a, b) => b.churnScore - a.churnScore)
-      .slice(0, limit);
+    return result.sort((a, b) => b.churnScore - a.churnScore).slice(0, limit);
   }
 
   // ===== BUS FACTOR ANALYSIS =====
 
-  async getBusFactor(repoPath: string, minCommits: number = 5): Promise<FileBusFactor[]> {
+  async getBusFactor(
+    repoPath: string,
+    minCommits: number = 5,
+  ): Promise<FileBusFactor[]> {
     const git = this.getGit(repoPath);
 
     // Get file authorship data
     const log = await git.raw([
-      'log',
-      '--all',
-      '--format=%an|%ae',
-      '--name-only',
-      '-n', '5000', // Limit for performance
+      "log",
+      "--all",
+      "--format=%an|%ae",
+      "--name-only",
+      "-n",
+      "5000", // Limit for performance
     ]);
 
     // Aggregate commits per file per author
-    const fileAuthors = new Map<string, Map<string, { name: string; email: string; commits: number }>>();
+    const fileAuthors = new Map<
+      string,
+      Map<string, { name: string; email: string; commits: number }>
+    >();
 
-    let currentAuthor = { name: '', email: '' };
+    let currentAuthor = { name: "", email: "" };
 
-    for (const line of log.split('\n')) {
-      if (line.includes('|')) {
-        const [name, email] = line.split('|');
+    for (const line of log.split("\n")) {
+      if (line.includes("|")) {
+        const [name, email] = line.split("|");
         currentAuthor = { name, email };
-      } else if (line.trim() && !line.startsWith(' ')) {
+      } else if (line.trim() && !line.startsWith(" ")) {
         const filePath = line.trim();
         if (filePath) {
           if (!fileAuthors.has(filePath)) {
@@ -1556,7 +1625,10 @@ class GitService {
 
     for (const [path, authors] of fileAuthors) {
       const contributorArray = Array.from(authors.values());
-      const totalCommits = contributorArray.reduce((sum, a) => sum + a.commits, 0);
+      const totalCommits = contributorArray.reduce(
+        (sum, a) => sum + a.commits,
+        0,
+      );
 
       // Skip files with few commits
       if (totalCommits < minCommits) continue;
@@ -1569,7 +1641,7 @@ class GitService {
 
       // Calculate bus factor: count of contributors with >10% of commits
       const significantContributors = contributorArray.filter(
-        a => (a.commits / totalCommits) >= 0.1
+        (a) => a.commits / totalCommits >= 0.1,
       ).length;
 
       result.push({
@@ -1582,7 +1654,7 @@ class GitService {
         totalCommits,
         uniqueContributors: contributorArray.length,
         busFactor: significantContributors,
-        contributors: contributorArray.slice(0, 5).map(c => ({
+        contributors: contributorArray.slice(0, 5).map((c) => ({
           name: c.name,
           email: c.email,
           commits: c.commits,
@@ -1601,11 +1673,7 @@ class GitService {
     const git = this.getGit(repoPath);
 
     // Get all commit timestamps
-    const log = await git.raw([
-      'log',
-      '--all',
-      '--format=%aI',
-    ]);
+    const log = await git.raw(["log", "--all", "--format=%aI"]);
 
     // Build 7x24 matrix (dayOfWeek x hour)
     const matrix = new Map<string, number>();
@@ -1613,7 +1681,7 @@ class GitService {
     const dayTotals = new Map<number, number>();
     let totalCommits = 0;
 
-    for (const line of log.trim().split('\n').filter(Boolean)) {
+    for (const line of log.trim().split("\n").filter(Boolean)) {
       const date = new Date(line);
       const hour = date.getHours();
       const dayOfWeek = date.getDay();
@@ -1672,22 +1740,25 @@ class GitService {
 
     // Get all branches
     const branches = await this.getBranches(git);
-    const localBranches = branches.filter(b => !b.isRemote);
+    const localBranches = branches.filter((b) => !b.isRemote);
 
     // Find default branch (main or master)
-    const defaultBranch = localBranches.find(b => b.name === 'main' || b.name === 'master')?.name || 'main';
+    const defaultBranch =
+      localBranches.find((b) => b.name === "main" || b.name === "master")
+        ?.name || "main";
 
     // Get merged branches
-    let mergedBranchesRaw = '';
+    let mergedBranchesRaw = "";
     try {
-      mergedBranchesRaw = await git.raw(['branch', '--merged', defaultBranch]);
+      mergedBranchesRaw = await git.raw(["branch", "--merged", defaultBranch]);
     } catch {
       // Default branch might not exist
     }
     const mergedBranches = new Set(
-      mergedBranchesRaw.split('\n')
-        .map(b => b.replace('*', '').trim())
-        .filter(Boolean)
+      mergedBranchesRaw
+        .split("\n")
+        .map((b) => b.replace("*", "").trim())
+        .filter(Boolean),
     );
 
     const result: BranchLifespan[] = [];
@@ -1698,25 +1769,25 @@ class GitService {
       try {
         // Get first commit on this branch (when it diverged)
         const firstCommit = await git.raw([
-          'log',
+          "log",
           branch.name,
-          '--reverse',
-          '--format=%aI',
-          '-1',
+          "--reverse",
+          "--format=%aI",
+          "-1",
         ]);
 
         // Get last commit on this branch
         const lastCommit = await git.raw([
-          'log',
+          "log",
           branch.name,
-          '--format=%aI',
-          '-1',
+          "--format=%aI",
+          "-1",
         ]);
 
         // Get commit count
         const commitCountRaw = await git.raw([
-          'rev-list',
-          '--count',
+          "rev-list",
+          "--count",
           branch.name,
         ]);
 
@@ -1725,13 +1796,16 @@ class GitService {
         const commitCount = parseInt(commitCountRaw.trim(), 10);
 
         // Determine status
-        const isMerged = mergedBranches.has(branch.name) && branch.name !== defaultBranch;
-        const daysSinceActivity = (now.getTime() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24);
+        const isMerged =
+          mergedBranches.has(branch.name) && branch.name !== defaultBranch;
+        const daysSinceActivity =
+          (now.getTime() - new Date(lastActivity).getTime()) /
+          (1000 * 60 * 60 * 24);
         const isStale = !isMerged && daysSinceActivity > STALE_DAYS;
 
-        let status: 'active' | 'merged' | 'stale' = 'active';
-        if (isMerged) status = 'merged';
-        else if (isStale) status = 'stale';
+        let status: "active" | "merged" | "stale" = "active";
+        if (isMerged) status = "merged";
+        else if (isStale) status = "stale";
 
         // Calculate lifespan
         let lifespanDays: number | null = null;
@@ -1741,18 +1815,19 @@ class GitService {
           // Find merge commit
           try {
             const mergeLog = await git.raw([
-              'log',
+              "log",
               defaultBranch,
-              '--merges',
-              '--format=%aI',
-              '--ancestry-path',
+              "--merges",
+              "--format=%aI",
+              "--ancestry-path",
               `${branch.name}..${defaultBranch}`,
-              '-1',
+              "-1",
             ]);
             if (mergeLog.trim()) {
               mergedAt = mergeLog.trim();
               lifespanDays = Math.round(
-                (new Date(mergedAt).getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
+                (new Date(mergedAt).getTime() - new Date(createdAt).getTime()) /
+                  (1000 * 60 * 60 * 24),
               );
             }
           } catch {

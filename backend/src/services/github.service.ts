@@ -1,16 +1,26 @@
 // GitHub API service for fetching PR and issue information
-import chalk from 'chalk';
+import chalk from "chalk";
 
 // Progress callback type for streaming updates
-export type ProgressCallback = (step: string, status: 'start' | 'success' | 'error' | 'info', message: string, data?: any) => void;
+export type ProgressCallback = (
+  step: string,
+  status: "start" | "success" | "error" | "info",
+  message: string,
+  data?: any,
+) => void;
 
 // Logger for GitHub operations
 const log = {
-  info: (msg: string) => console.log(chalk.blue('ℹ'), chalk.gray('[GitHub]'), msg),
-  success: (msg: string) => console.log(chalk.green('✓'), chalk.gray('[GitHub]'), msg),
-  warn: (msg: string) => console.log(chalk.yellow('⚠'), chalk.gray('[GitHub]'), msg),
-  error: (msg: string) => console.log(chalk.red('✗'), chalk.gray('[GitHub]'), msg),
-  debug: (msg: string) => console.log(chalk.magenta('●'), chalk.gray('[GitHub]'), chalk.dim(msg)),
+  info: (msg: string) =>
+    console.log(chalk.blue("ℹ"), chalk.gray("[GitHub]"), msg),
+  success: (msg: string) =>
+    console.log(chalk.green("✓"), chalk.gray("[GitHub]"), msg),
+  warn: (msg: string) =>
+    console.log(chalk.yellow("⚠"), chalk.gray("[GitHub]"), msg),
+  error: (msg: string) =>
+    console.log(chalk.red("✗"), chalk.gray("[GitHub]"), msg),
+  debug: (msg: string) =>
+    console.log(chalk.magenta("●"), chalk.gray("[GitHub]"), chalk.dim(msg)),
 };
 
 export interface GitHubConfig {
@@ -20,7 +30,7 @@ export interface GitHubConfig {
 export interface PullRequest {
   number: number;
   title: string;
-  state: 'open' | 'closed' | 'merged';
+  state: "open" | "closed" | "merged";
   url: string;
   author: string;
   createdAt: string;
@@ -30,7 +40,7 @@ export interface PullRequest {
 export interface Issue {
   number: number;
   title: string;
-  state: 'open' | 'closed';
+  state: "open" | "closed";
   url: string;
   labels: string[];
 }
@@ -101,12 +111,12 @@ class GitHubService {
 
   private getHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
-      'Accept': 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
     };
 
     if (this.config.token) {
-      headers['Authorization'] = `Bearer ${this.config.token}`;
+      headers["Authorization"] = `Bearer ${this.config.token}`;
     }
 
     return headers;
@@ -144,8 +154,11 @@ class GitHubService {
   /**
    * Fetch with error handling and rate limit awareness
    */
-  private async fetchGitHub<T>(url: string, description?: string): Promise<T | null> {
-    const shortUrl = url.replace('https://api.github.com/', '');
+  private async fetchGitHub<T>(
+    url: string,
+    description?: string,
+  ): Promise<T | null> {
+    const shortUrl = url.replace("https://api.github.com/", "");
     log.debug(`Fetching: ${shortUrl}`);
     const startTime = Date.now();
 
@@ -154,27 +167,33 @@ class GitHubService {
       const elapsed = Date.now() - startTime;
 
       // Log rate limit info
-      const remaining = response.headers.get('X-RateLimit-Remaining');
-      const limit = response.headers.get('X-RateLimit-Limit');
+      const remaining = response.headers.get("X-RateLimit-Remaining");
+      const limit = response.headers.get("X-RateLimit-Limit");
       if (remaining && limit) {
         const pct = Math.round((parseInt(remaining) / parseInt(limit)) * 100);
         log.debug(`Rate limit: ${remaining}/${limit} (${pct}%) remaining`);
       }
 
       if (response.status === 401) {
-        log.error('Authentication failed - invalid token');
-        throw new Error('GitHub authentication failed. Please check your token.');
+        log.error("Authentication failed - invalid token");
+        throw new Error(
+          "GitHub authentication failed. Please check your token.",
+        );
       }
 
       if (response.status === 403) {
-        if (remaining === '0') {
-          const reset = response.headers.get('X-RateLimit-Reset');
-          const resetDate = reset ? new Date(parseInt(reset) * 1000).toLocaleTimeString() : 'soon';
+        if (remaining === "0") {
+          const reset = response.headers.get("X-RateLimit-Reset");
+          const resetDate = reset
+            ? new Date(parseInt(reset) * 1000).toLocaleTimeString()
+            : "soon";
           log.error(`Rate limit exceeded! Resets at ${resetDate}`);
-          throw new Error(`GitHub rate limit exceeded. Resets at ${resetDate}.`);
+          throw new Error(
+            `GitHub rate limit exceeded. Resets at ${resetDate}.`,
+          );
         }
-        log.error('Access forbidden');
-        throw new Error('GitHub access forbidden.');
+        log.error("Access forbidden");
+        throw new Error("GitHub access forbidden.");
       }
 
       if (response.status === 404) {
@@ -190,9 +209,9 @@ class GitHubService {
       log.debug(`Fetched: ${shortUrl} (${elapsed}ms)`);
       return response.json();
     } catch (error) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        log.error('Network error - cannot reach GitHub API');
-        throw new Error('Network error: Unable to reach GitHub API');
+      if (error instanceof TypeError && error.message.includes("fetch")) {
+        log.error("Network error - cannot reach GitHub API");
+        throw new Error("Network error: Unable to reach GitHub API");
       }
       throw error;
     }
@@ -204,7 +223,7 @@ class GitHubService {
   async getPullRequestsForCommit(
     owner: string,
     repo: string,
-    commitSha: string
+    commitSha: string,
   ): Promise<PullRequest[]> {
     const cacheKey = `${owner}/${repo}/${commitSha}`;
     const cached = this.prCache.get(cacheKey);
@@ -218,9 +237,9 @@ class GitHubService {
     const prs: PullRequest[] = data.map((pr: any) => ({
       number: pr.number,
       title: pr.title,
-      state: pr.merged_at ? 'merged' : (pr.state as 'open' | 'closed'),
+      state: pr.merged_at ? "merged" : (pr.state as "open" | "closed"),
       url: pr.html_url,
-      author: pr.user?.login || 'unknown',
+      author: pr.user?.login || "unknown",
       createdAt: pr.created_at,
       mergedAt: pr.merged_at || undefined,
     }));
@@ -233,7 +252,7 @@ class GitHubService {
    * Parse issue references from commit message and body
    * Supports: fixes #123, closes #456, resolves #789, etc.
    */
-  parseIssueReferences(message: string, body: string = ''): number[] {
+  parseIssueReferences(message: string, body: string = ""): number[] {
     const text = `${message}\n${body}`;
     const patterns = [
       // Standard GitHub keywords
@@ -257,7 +276,11 @@ class GitHubService {
   /**
    * Fetch issue details
    */
-  async getIssue(owner: string, repo: string, issueNumber: number): Promise<Issue | null> {
+  async getIssue(
+    owner: string,
+    repo: string,
+    issueNumber: number,
+  ): Promise<Issue | null> {
     const cacheKey = `${owner}/${repo}/issue/${issueNumber}`;
     const cached = this.issueCache.get(cacheKey);
     if (cached) return cached;
@@ -273,7 +296,7 @@ class GitHubService {
     const issue: Issue = {
       number: data.number,
       title: data.title,
-      state: data.state as 'open' | 'closed',
+      state: data.state as "open" | "closed",
       url: data.html_url,
       labels: data.labels?.map((l: any) => l.name) || [],
     };
@@ -289,70 +312,110 @@ class GitHubService {
     owner: string,
     repo: string,
     commit: { hash: string; message: string; body: string },
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
   ): Promise<CommitGitHubInfo> {
     const shortHash = commit.hash.substring(0, 7);
     log.info(`Fetching GitHub info for commit ${shortHash}`);
-    onProgress?.('init', 'start', `Starting GitHub lookup for ${shortHash}...`);
+    onProgress?.("init", "start", `Starting GitHub lookup for ${shortHash}...`);
 
     // Step 1: Fetch pull requests
-    onProgress?.('prs', 'start', 'Searching for pull requests...');
+    onProgress?.("prs", "start", "Searching for pull requests...");
     log.debug(`Looking up PRs for ${owner}/${repo}@${shortHash}`);
 
     let pullRequests: PullRequest[] = [];
     try {
-      pullRequests = await this.getPullRequestsForCommit(owner, repo, commit.hash);
+      pullRequests = await this.getPullRequestsForCommit(
+        owner,
+        repo,
+        commit.hash,
+      );
       if (pullRequests.length > 0) {
-        log.success(`Found ${pullRequests.length} PR(s) for commit ${shortHash}`);
-        onProgress?.('prs', 'success', `Found ${pullRequests.length} pull request(s)`, { count: pullRequests.length });
+        log.success(
+          `Found ${pullRequests.length} PR(s) for commit ${shortHash}`,
+        );
+        onProgress?.(
+          "prs",
+          "success",
+          `Found ${pullRequests.length} pull request(s)`,
+          { count: pullRequests.length },
+        );
       } else {
         log.info(`No PRs found for commit ${shortHash}`);
-        onProgress?.('prs', 'info', 'No pull requests found');
+        onProgress?.("prs", "info", "No pull requests found");
       }
     } catch (err) {
       log.error(`Failed to fetch PRs: ${err}`);
-      onProgress?.('prs', 'error', `Failed to fetch PRs: ${err}`);
+      onProgress?.("prs", "error", `Failed to fetch PRs: ${err}`);
     }
 
     // Step 2: Parse issue references
-    onProgress?.('parse', 'start', 'Parsing commit message for issue references...');
+    onProgress?.(
+      "parse",
+      "start",
+      "Parsing commit message for issue references...",
+    );
     const issueNumbers = this.parseIssueReferences(commit.message, commit.body);
     if (issueNumbers.length > 0) {
-      log.info(`Found ${issueNumbers.length} issue reference(s): #${issueNumbers.join(', #')}`);
-      onProgress?.('parse', 'success', `Found ${issueNumbers.length} issue reference(s): #${issueNumbers.join(', #')}`, { issues: issueNumbers });
+      log.info(
+        `Found ${issueNumbers.length} issue reference(s): #${issueNumbers.join(", #")}`,
+      );
+      onProgress?.(
+        "parse",
+        "success",
+        `Found ${issueNumbers.length} issue reference(s): #${issueNumbers.join(", #")}`,
+        { issues: issueNumbers },
+      );
     } else {
-      log.debug('No issue references found in commit message');
-      onProgress?.('parse', 'info', 'No issue references in commit message');
+      log.debug("No issue references found in commit message");
+      onProgress?.("parse", "info", "No issue references in commit message");
     }
 
     // Step 3: Fetch issue details
     const linkedIssues: Issue[] = [];
     if (issueNumbers.length > 0) {
-      onProgress?.('issues', 'start', `Fetching details for ${issueNumbers.length} issue(s)...`);
+      onProgress?.(
+        "issues",
+        "start",
+        `Fetching details for ${issueNumbers.length} issue(s)...`,
+      );
 
       for (let i = 0; i < issueNumbers.length; i++) {
         const issueNum = issueNumbers[i];
-        onProgress?.('issues', 'info', `Fetching issue #${issueNum} (${i + 1}/${issueNumbers.length})...`, { current: i + 1, total: issueNumbers.length });
+        onProgress?.(
+          "issues",
+          "info",
+          `Fetching issue #${issueNum} (${i + 1}/${issueNumbers.length})...`,
+          { current: i + 1, total: issueNumbers.length },
+        );
 
         try {
           const issue = await this.getIssue(owner, repo, issueNum);
           if (issue) {
             linkedIssues.push(issue);
-            log.success(`Fetched issue #${issueNum}: "${issue.title.substring(0, 40)}..."`);
+            log.success(
+              `Fetched issue #${issueNum}: "${issue.title.substring(0, 40)}..."`,
+            );
           }
         } catch (err) {
           log.warn(`Could not fetch issue #${issueNum}: ${err}`);
         }
       }
 
-      onProgress?.('issues', 'success', `Loaded ${linkedIssues.length} issue(s)`, { count: linkedIssues.length });
+      onProgress?.(
+        "issues",
+        "success",
+        `Loaded ${linkedIssues.length} issue(s)`,
+        { count: linkedIssues.length },
+      );
     }
 
     // Complete
-    log.success(`GitHub lookup complete: ${pullRequests.length} PR(s), ${linkedIssues.length} issue(s)`);
-    onProgress?.('complete', 'success', 'GitHub info loaded', {
+    log.success(
+      `GitHub lookup complete: ${pullRequests.length} PR(s), ${linkedIssues.length} issue(s)`,
+    );
+    onProgress?.("complete", "success", "GitHub info loaded", {
       pullRequests: pullRequests.length,
-      linkedIssues: linkedIssues.length
+      linkedIssues: linkedIssues.length,
     });
 
     return { pullRequests, linkedIssues };
@@ -361,9 +424,13 @@ class GitHubService {
   /**
    * Get rate limit status
    */
-  async getRateLimitStatus(): Promise<{ remaining: number; limit: number; resetAt: string } | null> {
+  async getRateLimitStatus(): Promise<{
+    remaining: number;
+    limit: number;
+    resetAt: string;
+  } | null> {
     try {
-      const url = 'https://api.github.com/rate_limit';
+      const url = "https://api.github.com/rate_limit";
       const data = await this.fetchGitHub<any>(url);
       if (!data) return null;
 

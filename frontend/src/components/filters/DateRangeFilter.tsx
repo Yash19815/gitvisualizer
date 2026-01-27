@@ -1,18 +1,19 @@
-import { useState } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useState } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 const DATE_PRESETS = [
-  { label: 'Last 7 days', days: 7 },
-  { label: 'Last 30 days', days: 30 },
-  { label: 'Last 3 months', days: 90 },
-  { label: 'Last year', days: 365 },
+  { label: "Last 7 days", days: 7 },
+  { label: "Last 30 days", days: 30 },
+  { label: "Last 3 months", days: 90 },
+  { label: "Last year", days: 365 },
 ];
 
 export function DateRangeFilter() {
-  const { dateFilter, setDateFilter, applyDateFilter, isLoading } = useRepositoryStore();
+  const { dateFilter, setDateFilter, applyDateFilter, isLoading } =
+    useRepositoryStore();
   const [isExpanded, setIsExpanded] = useState(false);
-  const [customSince, setCustomSince] = useState('');
-  const [customUntil, setCustomUntil] = useState('');
+  const [customSince, setCustomSince] = useState("");
+  const [customUntil, setCustomUntil] = useState("");
 
   const handlePresetClick = (days: number) => {
     const until = new Date();
@@ -31,15 +32,15 @@ export function DateRangeFilter() {
       newFilter.since = new Date(customSince).toISOString();
     }
     if (customUntil) {
-      newFilter.until = new Date(customUntil + 'T23:59:59').toISOString();
+      newFilter.until = new Date(customUntil + "T23:59:59").toISOString();
     }
     setDateFilter(Object.keys(newFilter).length > 0 ? newFilter : null);
   };
 
   const handleClear = () => {
     setDateFilter(null);
-    setCustomSince('');
-    setCustomUntil('');
+    setCustomSince("");
+    setCustomUntil("");
   };
 
   const handleApply = () => {
@@ -59,8 +60,18 @@ export function DateRangeFilter() {
         className="flex items-center justify-between w-full text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 hover:text-gray-700 dark:hover:text-gray-300"
       >
         <span className="flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
           </svg>
           Date Filter
           {hasFilter && (
@@ -70,12 +81,17 @@ export function DateRangeFilter() {
           )}
         </span>
         <svg
-          className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+          className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-180" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
         >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
@@ -97,7 +113,9 @@ export function DateRangeFilter() {
           {/* Custom date inputs */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400 w-12">From:</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 w-12">
+                From:
+              </label>
               <input
                 type="date"
                 value={customSince}
@@ -106,7 +124,9 @@ export function DateRangeFilter() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs text-gray-500 dark:text-gray-400 w-12">To:</label>
+              <label className="text-xs text-gray-500 dark:text-gray-400 w-12">
+                To:
+              </label>
               <input
                 type="date"
                 value={customUntil}
@@ -128,9 +148,11 @@ export function DateRangeFilter() {
           {hasFilter && (
             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
               <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-                {dateFilter.since && `From: ${formatDateForDisplay(dateFilter.since)}`}
-                {dateFilter.since && dateFilter.until && ' — '}
-                {dateFilter.until && `To: ${formatDateForDisplay(dateFilter.until)}`}
+                {dateFilter.since &&
+                  `From: ${formatDateForDisplay(dateFilter.since)}`}
+                {dateFilter.since && dateFilter.until && " — "}
+                {dateFilter.until &&
+                  `To: ${formatDateForDisplay(dateFilter.until)}`}
               </p>
             </div>
           )}
@@ -150,7 +172,7 @@ export function DateRangeFilter() {
               disabled={isLoading}
               className="flex-1 px-2 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {isLoading ? 'Loading...' : 'Apply Filter'}
+              {isLoading ? "Loading..." : "Apply Filter"}
             </button>
           </div>
         </div>

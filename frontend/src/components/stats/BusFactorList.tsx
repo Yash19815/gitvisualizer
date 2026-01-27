@@ -1,15 +1,19 @@
-import { useState, useMemo } from 'react';
-import type { FileBusFactor } from '../../types';
+import { useState, useMemo } from "react";
+import type { FileBusFactor } from "../../types";
 
 interface BusFactorListProps {
   data: FileBusFactor[];
 }
 
-type SortField = 'busFactor' | 'primaryAuthor.percentage' | 'totalCommits' | 'uniqueContributors';
+type SortField =
+  | "busFactor"
+  | "primaryAuthor.percentage"
+  | "totalCommits"
+  | "uniqueContributors";
 
 export function BusFactorList({ data }: BusFactorListProps) {
-  const [sortField, setSortField] = useState<SortField>('busFactor');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortField, setSortField] = useState<SortField>("busFactor");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
 
   const sorted = useMemo(() => {
@@ -17,7 +21,7 @@ export function BusFactorList({ data }: BusFactorListProps) {
       let aVal: number;
       let bVal: number;
 
-      if (sortField === 'primaryAuthor.percentage') {
+      if (sortField === "primaryAuthor.percentage") {
         aVal = a.primaryAuthor.percentage;
         bVal = b.primaryAuthor.percentage;
       } else {
@@ -25,21 +29,21 @@ export function BusFactorList({ data }: BusFactorListProps) {
         bVal = b[sortField as keyof FileBusFactor] as number;
       }
 
-      return sortDirection === 'desc' ? bVal - aVal : aVal - bVal;
+      return sortDirection === "desc" ? bVal - aVal : aVal - bVal;
     });
   }, [data, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
-      setSortDirection(prev => prev === 'desc' ? 'asc' : 'desc');
+      setSortDirection((prev) => (prev === "desc" ? "asc" : "desc"));
     } else {
       setSortField(field);
-      setSortDirection(field === 'busFactor' ? 'asc' : 'desc');
+      setSortDirection(field === "busFactor" ? "asc" : "desc");
     }
   };
 
   const toggleExpand = (path: string) => {
-    setExpandedPaths(prev => {
+    setExpandedPaths((prev) => {
       const next = new Set(prev);
       if (next.has(path)) {
         next.delete(path);
@@ -51,20 +55,20 @@ export function BusFactorList({ data }: BusFactorListProps) {
   };
 
   const getRiskColor = (busFactor: number) => {
-    if (busFactor === 1) return 'bg-red-500';
-    if (busFactor === 2) return 'bg-yellow-500';
-    return 'bg-green-500';
+    if (busFactor === 1) return "bg-red-500";
+    if (busFactor === 2) return "bg-yellow-500";
+    return "bg-green-500";
   };
 
   const getRiskLabel = (busFactor: number) => {
-    if (busFactor === 1) return 'High Risk';
-    if (busFactor === 2) return 'Medium Risk';
-    return 'Low Risk';
+    if (busFactor === 1) return "High Risk";
+    if (busFactor === 2) return "Medium Risk";
+    return "Low Risk";
   };
 
   const SortIcon = ({ field }: { field: SortField }) => (
     <svg
-      className={`w-3 h-3 ml-1 inline ${sortField === field ? 'opacity-100' : 'opacity-0'}`}
+      className={`w-3 h-3 ml-1 inline ${sortField === field ? "opacity-100" : "opacity-0"}`}
       fill="none"
       viewBox="0 0 24 24"
       stroke="currentColor"
@@ -73,7 +77,7 @@ export function BusFactorList({ data }: BusFactorListProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth={2}
-        d={sortDirection === 'desc' ? 'M19 9l-7 7-7-7' : 'M5 15l7-7 7 7'}
+        d={sortDirection === "desc" ? "M19 9l-7 7-7-7" : "M5 15l7-7 7 7"}
       />
     </svg>
   );
@@ -83,15 +87,21 @@ export function BusFactorList({ data }: BusFactorListProps) {
       <div className="mb-4 flex gap-4 text-sm">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-red-500" />
-          <span className="text-gray-600 dark:text-gray-400">High Risk (1 contributor)</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            High Risk (1 contributor)
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <span className="text-gray-600 dark:text-gray-400">Medium Risk (2 contributors)</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            Medium Risk (2 contributors)
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span className="text-gray-600 dark:text-gray-400">Low Risk (3+ contributors)</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            Low Risk (3+ contributors)
+          </span>
         </div>
       </div>
 
@@ -103,7 +113,7 @@ export function BusFactorList({ data }: BusFactorListProps) {
             </th>
             <th
               className="text-center py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('busFactor')}
+              onClick={() => handleSort("busFactor")}
             >
               Risk <SortIcon field="busFactor" />
             </th>
@@ -112,19 +122,19 @@ export function BusFactorList({ data }: BusFactorListProps) {
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('primaryAuthor.percentage')}
+              onClick={() => handleSort("primaryAuthor.percentage")}
             >
               Ownership <SortIcon field="primaryAuthor.percentage" />
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('totalCommits')}
+              onClick={() => handleSort("totalCommits")}
             >
               Commits <SortIcon field="totalCommits" />
             </th>
             <th
               className="text-right py-2 px-3 font-medium text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
-              onClick={() => handleSort('uniqueContributors')}
+              onClick={() => handleSort("uniqueContributors")}
             >
               Contributors <SortIcon field="uniqueContributors" />
             </th>
@@ -141,21 +151,31 @@ export function BusFactorList({ data }: BusFactorListProps) {
                 <td className="py-2 px-3">
                   <div className="flex items-center gap-2">
                     <svg
-                      className={`w-4 h-4 text-gray-400 transition-transform ${expandedPaths.has(file.path) ? 'rotate-90' : ''}`}
+                      className={`w-4 h-4 text-gray-400 transition-transform ${expandedPaths.has(file.path) ? "rotate-90" : ""}`}
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
                     </svg>
-                    <span className="font-mono text-xs text-gray-900 dark:text-gray-100 truncate max-w-[300px]" title={file.path}>
+                    <span
+                      className="font-mono text-xs text-gray-900 dark:text-gray-100 truncate max-w-[300px]"
+                      title={file.path}
+                    >
                       {file.path}
                     </span>
                   </div>
                 </td>
                 <td className="py-2 px-3">
                   <div className="flex items-center justify-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${getRiskColor(file.busFactor)}`} />
+                    <div
+                      className={`w-3 h-3 rounded-full ${getRiskColor(file.busFactor)}`}
+                    />
                     <span className="text-xs text-gray-600 dark:text-gray-400">
                       {getRiskLabel(file.busFactor)}
                     </span>
@@ -186,27 +206,38 @@ export function BusFactorList({ data }: BusFactorListProps) {
               </tr>
               {expandedPaths.has(file.path) && (
                 <tr key={`${file.path}-expanded`}>
-                  <td colSpan={6} className="bg-gray-50 dark:bg-gray-800/50 px-8 py-3">
+                  <td
+                    colSpan={6}
+                    className="bg-gray-50 dark:bg-gray-800/50 px-8 py-3"
+                  >
                     <div className="text-xs text-gray-600 dark:text-gray-400 mb-2">
                       Contributor breakdown:
                     </div>
                     <div className="space-y-2">
                       {file.contributors.map((contributor) => (
-                        <div key={contributor.email} className="flex items-center gap-3">
+                        <div
+                          key={contributor.email}
+                          className="flex items-center gap-3"
+                        >
                           <div
                             className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium"
                             style={{
-                              backgroundColor: `hsl(${contributor.email.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 360}, 50%, 50%)`,
+                              backgroundColor: `hsl(${contributor.email.split("").reduce((a, c) => a + c.charCodeAt(0), 0) % 360}, 50%, 50%)`,
                             }}
                           >
                             {contributor.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1">
-                            <div className="text-sm text-gray-900 dark:text-gray-100">{contributor.name}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{contributor.email}</div>
+                            <div className="text-sm text-gray-900 dark:text-gray-100">
+                              {contributor.name}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {contributor.email}
+                            </div>
                           </div>
                           <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {contributor.commits} commits ({contributor.percentage.toFixed(0)}%)
+                            {contributor.commits} commits (
+                            {contributor.percentage.toFixed(0)}%)
                           </div>
                         </div>
                       ))}

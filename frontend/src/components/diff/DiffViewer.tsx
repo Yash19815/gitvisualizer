@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
-import { DiffFileList } from './DiffFileList';
-import { DiffContent } from './DiffContent';
+import { useEffect } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
+import { DiffFileList } from "./DiffFileList";
+import { DiffContent } from "./DiffContent";
 
 export function DiffViewer() {
   const {
@@ -34,7 +34,9 @@ export function DiffViewer() {
     return (
       <div className="p-4 flex items-center justify-center">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
-        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading changes...</span>
+        <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+          Loading changes...
+        </span>
       </div>
     );
   }
@@ -59,17 +61,23 @@ export function DiffViewer() {
       {/* Summary header */}
       {diffStats && (
         <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm">
-          <span className="text-gray-600 dark:text-gray-400">{diffStats.files.length} files changed</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            {diffStats.files.length} files changed
+          </span>
           {diffStats.totalAdditions > 0 && (
             <>
               <span className="mx-2 text-gray-400 dark:text-gray-500">•</span>
-              <span className="text-green-600 dark:text-green-400">+{diffStats.totalAdditions}</span>
+              <span className="text-green-600 dark:text-green-400">
+                +{diffStats.totalAdditions}
+              </span>
             </>
           )}
           {diffStats.totalDeletions > 0 && (
             <>
               <span className="mx-2 text-gray-400 dark:text-gray-500">•</span>
-              <span className="text-red-600 dark:text-red-400">-{diffStats.totalDeletions}</span>
+              <span className="text-red-600 dark:text-red-400">
+                -{diffStats.totalDeletions}
+              </span>
             </>
           )}
         </div>
@@ -78,10 +86,7 @@ export function DiffViewer() {
       {/* File list */}
       <div className="flex-1 overflow-auto">
         {diffStats && (
-          <DiffFileList
-            files={diffStats.files}
-            onFileSelect={fetchFileDiff}
-          />
+          <DiffFileList files={diffStats.files} onFileSelect={fetchFileDiff} />
         )}
       </div>
 

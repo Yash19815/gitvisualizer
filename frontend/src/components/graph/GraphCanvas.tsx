@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   ReactFlow,
   Controls,
@@ -7,18 +7,22 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  useViewport,
   BackgroundVariant,
   type Node,
   type Edge,
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
 
-import { CommitNode } from './CommitNode';
-import { SubmoduleNode } from './SubmoduleNode';
-import { GraphToolbar } from './GraphToolbar';
-import { UploadZone } from '../inputs/UploadZone';
-import { useRepositoryStore } from '../../store/repositoryStore';
-import { layoutCommitGraph, layoutSubmoduleNodes } from '../../utils/layoutEngine';
+import { CommitNode } from "./CommitNode";
+import { SubmoduleNode } from "./SubmoduleNode";
+import { GraphToolbar } from "./GraphToolbar";
+import { UploadZone } from "../inputs/UploadZone";
+import { useRepositoryStore } from "../../store/repositoryStore";
+import {
+  layoutCommitGraph,
+  layoutSubmoduleNodes,
+} from "../../utils/layoutEngine";
 
 const nodeTypes = {
   commit: CommitNode,
@@ -53,18 +57,19 @@ export function GraphCanvas() {
 
     // Filter out merge commits if setting is enabled
     if (graphSettings.hideMergeCommits) {
-      commits = commits.filter(commit => commit.parents.length <= 1);
+      commits = commits.filter((commit) => commit.parents.length <= 1);
     }
 
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      commits = commits.filter(commit =>
-        commit.message.toLowerCase().includes(query) ||
-        commit.hash.toLowerCase().includes(query) ||
-        commit.shortHash.toLowerCase().includes(query) ||
-        commit.author.name.toLowerCase().includes(query) ||
-        commit.refs.some(ref => ref.name.toLowerCase().includes(query))
+      commits = commits.filter(
+        (commit) =>
+          commit.message.toLowerCase().includes(query) ||
+          commit.hash.toLowerCase().includes(query) ||
+          commit.shortHash.toLowerCase().includes(query) ||
+          commit.author.name.toLowerCase().includes(query) ||
+          commit.refs.some((ref) => ref.name.toLowerCase().includes(query)),
       );
     }
 
@@ -80,31 +85,66 @@ export function GraphCanvas() {
 
     const { nodes: layoutedNodes, edges: layoutedEdges } = layoutCommitGraph(
       filteredCommits,
-      { direction: 'TB', nodeSpacing: 40, rankSpacing: 80 },
+      { direction: "TB", nodeSpacing: 40, rankSpacing: 80 },
       {
         compactMode: graphSettings.compactMode,
         colorByAuthor: graphSettings.colorByAuthor,
         highlightedCommits: new Set<string>(), // Empty set - highlighting applied separately
-      }
+      },
     );
 
     // Layout submodule nodes below the commit graph
-    const submoduleNodes = submodules && submodules.length > 0
-      ? layoutSubmoduleNodes(submodules, layoutedNodes, {
-          isCompact: graphSettings.compactMode,
-          selectedSubmodulePath: selectedSubmodule?.path,
-          onNavigate: navigateToSubmodule,
-        })
-      : [];
+    const submoduleNodes =
+      submodules && submodules.length > 0
+        ? layoutSubmoduleNodes(submodules, layoutedNodes, {
+            isCompact: graphSettings.compactMode,
+            selectedSubmodulePath: selectedSubmodule?.path,
+            onNavigate: navigateToSubmodule,
+          })
+        : [];
 
     return { layoutedNodes, layoutedEdges, submoduleNodes };
-  }, [filteredCommits, graphSettings.compactMode, graphSettings.colorByAuthor, submodules, selectedSubmodule?.path, navigateToSubmodule]);
+  }, [
+    filteredCommits,
+    graphSettings.compactMode,
+    graphSettings.colorByAuthor,
+    submodules,
+    selectedSubmodule?.path,
+    navigateToSubmodule,
+  ]);
 
-  // Apply selection and highlighting WITHOUT re-running layout
+  const { x, y, zoom } = useViewport();
+
+  // Virtualization: Filter nodes based on current viewport
   useEffect(() => {
     if (layoutedNodes.length > 0 || submoduleNodes.length > 0) {
-      // Update commit nodes with selection and highlighting (O(n) but no layout recalc)
-      const commitNodesWithState = layoutedNodes.map(node => ({
+      // Calculate viewport bounds in graph coordinates
+      // Viewport transform: [x, y, zoom]
+      // Graph coordinate = (Screen coordinate - x) / zoom
+
+      // Get container dimensions (fallback to window if not available)
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+
+      // Add a generous buffer (e.g., 1 viewport size in all directions) to prevent popping during scroll
+      const bufferX = width / zoom;
+      const bufferY = height / zoom;
+
+      const minX = -x / zoom - bufferX;
+      const maxX = (-x + width) / zoom + bufferX;
+      const minY = -y / zoom - bufferY;
+      const maxY = (-y + height) / zoom + bufferY;
+
+      // Filter nodes that are roughly within visible area
+      const visibleNodes = layoutedNodes.filter((node) => {
+        const nodeX = node.position.x;
+        const nodeY = node.position.y;
+        // Simple bounding box check (assuming max node size ~300x100)
+        return nodeX >= minX && nodeX <= maxX && nodeY >= minY && nodeY <= maxY;
+      });
+
+      // Update visible commit nodes with selection and highlighting
+      const visibleCommitNodesWithState = visibleNodes.map((node) => ({
         ...node,
         selected: selectedCommit?.hash === node.id,
         data: {
@@ -113,28 +153,62 @@ export function GraphCanvas() {
         },
       }));
 
-      // Combine commit nodes with submodule nodes
-      const allNodes = [...commitNodesWithState, ...submoduleNodes];
+      // Combine visible commit nodes with submodule nodes (always show submodules for now as they are few)
+      const allVisibleNodes = [
+        ...visibleCommitNodesWithState,
+        ...submoduleNodes,
+      ];
 
-      setNodes(allNodes as Node[]);
-      setEdges(layoutedEdges as Edge[]);
+      // Filter edges: keep edges where BOTH source and target are visible
+      // Optimization: For large graphs, we might also want to show edges connected to visible nodes
+      // even if one end is off-screen, but for pure performance, strict visibility is faster.
+      const visibleNodeIds = new Set(allVisibleNodes.map((n) => n.id));
+      const visibleEdges = layoutedEdges.filter(
+        (edge) =>
+          visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+      );
 
-      // Fit view only when commits change, not on selection
+      setNodes(allVisibleNodes as Node[]);
+      setEdges(visibleEdges as Edge[]);
+
+      // Fit view only when commits change, not on selection or pan/zoom
       const commitsChanged = prevFilteredCommitsRef.current !== filteredCommits;
       if (commitsChanged) {
         prevFilteredCommitsRef.current = filteredCommits;
-        setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
+        // Don't fit view constantly during virtualization updates
+        // Only on initial load of new data
+        if (visibleNodes.length === 0 && layoutedNodes.length > 0) {
+          setTimeout(() => fitView({ padding: 0.2, duration: 300 }), 100);
+        }
       }
     } else {
       setNodes([]);
       setEdges([]);
     }
-  }, [layoutedNodes, layoutedEdges, submoduleNodes, selectedCommit, highlightedCommits, filteredCommits, setNodes, setEdges, fitView]);
+  }, [
+    layoutedNodes,
+    layoutedEdges,
+    submoduleNodes,
+    selectedCommit,
+    highlightedCommits,
+    filteredCommits,
+    setNodes,
+    setEdges,
+    fitView,
+    x,
+    y,
+    zoom, // Re-run when viewport changes
+  ]);
 
   // Zoom to selected commit when it changes
   useEffect(() => {
-    if (selectedCommit && prevSelectedCommitRef.current !== selectedCommit.hash) {
-      const selectedNode = nodes.find(node => node.id === selectedCommit.hash);
+    if (
+      selectedCommit &&
+      prevSelectedCommitRef.current !== selectedCommit.hash
+    ) {
+      const selectedNode = nodes.find(
+        (node) => node.id === selectedCommit.hash,
+      );
       if (selectedNode) {
         // Calculate center position of the node
         const nodeWidth = graphSettings.compactMode ? 200 : 280;
@@ -155,41 +229,66 @@ export function GraphCanvas() {
   }, [selectedCommit, nodes, graphSettings.compactMode, setCenter, getZoom]);
 
   // Handle node click
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    // Check if it's a submodule node
-    if (node.type === 'submodule') {
-      const submodule = submodules?.find(s => s.path === node.id);
-      if (submodule) {
-        // Toggle selection or navigate if already selected
-        if (selectedSubmodule?.path === submodule.path) {
-          // Double-click behavior: navigate into the submodule
-          if (submodule.initialized) {
-            navigateToSubmodule(submodule.path);
+  const onNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      // Check if it's a submodule node
+      if (node.type === "submodule") {
+        const submodule = submodules?.find((s) => s.path === node.id);
+        if (submodule) {
+          // Toggle selection or navigate if already selected
+          if (selectedSubmodule?.path === submodule.path) {
+            // Double-click behavior: navigate into the submodule
+            if (submodule.initialized) {
+              navigateToSubmodule(submodule.path);
+            }
+          } else {
+            setSelectedSubmodule(submodule);
           }
-        } else {
-          setSelectedSubmodule(submodule);
         }
+        return;
       }
-      return;
-    }
 
-    // Handle commit node click
-    const commit = repository?.commits.find(c => c.hash === node.id);
-    if (commit) {
-      setSelectedCommit(selectedCommit?.hash === commit.hash ? null : commit);
-    }
-  }, [repository?.commits, selectedCommit, setSelectedCommit, submodules, selectedSubmodule, setSelectedSubmodule, navigateToSubmodule]);
+      // Handle commit node click
+      const commit = repository?.commits.find((c) => c.hash === node.id);
+      if (commit) {
+        setSelectedCommit(selectedCommit?.hash === commit.hash ? null : commit);
+      }
+    },
+    [
+      repository?.commits,
+      selectedCommit,
+      setSelectedCommit,
+      submodules,
+      selectedSubmodule,
+      setSelectedSubmodule,
+      navigateToSubmodule,
+    ],
+  );
 
   if (!repository) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="max-w-md w-full px-6">
           <div className="text-center mb-6">
-            <svg className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            <svg
+              className="w-16 h-16 mx-auto mb-4 text-gray-300 dark:text-gray-600"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+              />
             </svg>
-            <p className="text-lg font-medium text-gray-700 dark:text-gray-300">Visualize Your Git History</p>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select a project folder or enter a local path above</p>
+            <p className="text-lg font-medium text-gray-700 dark:text-gray-300">
+              Visualize Your Git History
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Select a project folder or enter a local path above
+            </p>
           </div>
 
           <UploadZone />
@@ -215,8 +314,11 @@ export function GraphCanvas() {
         fitView
         minZoom={0.1}
         maxZoom={2}
+        zoomOnScroll={true}
+        panOnScroll={false}
+        zoomActivationKeyCode={null}
         defaultEdgeOptions={{
-          type: 'smoothstep',
+          type: "smoothstep",
           animated: false,
         }}
         proOptions={{ hideAttribution: true }}
@@ -225,19 +327,26 @@ export function GraphCanvas() {
       >
         <Controls position="bottom-right" />
         <MiniMap
-          nodeColor={(node) => (node.data as { color?: string })?.color || '#888'}
+          nodeColor={(node) =>
+            (node.data as { color?: string })?.color || "#888"
+          }
           maskColor={darkMode ? "rgba(0, 0, 0, 0.4)" : "rgba(0, 0, 0, 0.15)"}
           style={{
-            backgroundColor: darkMode ? '#1f2937' : '#f9fafb',
-            borderRadius: '8px',
-            border: darkMode ? '1px solid #374151' : '1px solid #e5e7eb',
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+            backgroundColor: darkMode ? "#1f2937" : "#f9fafb",
+            borderRadius: "8px",
+            border: darkMode ? "1px solid #374151" : "1px solid #e5e7eb",
+            boxShadow:
+              "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
           }}
           position="bottom-left"
           pannable
           zoomable
         />
-        <Background variant={BackgroundVariant.Dots} gap={20} color={darkMode ? '#374151' : '#e5e7eb'} />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          color={darkMode ? "#374151" : "#e5e7eb"}
+        />
       </ReactFlow>
     </div>
   );

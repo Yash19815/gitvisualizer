@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
+import { useState } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
 
 export function AuthTokenModal() {
   const {
@@ -8,7 +8,7 @@ export function AuthTokenModal() {
     dismissAuthModal,
     retryCloneWithToken,
   } = useRepositoryStore();
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState("");
   const [saveToken, setSaveToken] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -18,24 +18,24 @@ export function AuthTokenModal() {
 
   // Detect the provider from the URL
   const getProvider = (url: string): string => {
-    if (url.includes('github.com')) return 'GitHub';
-    if (url.includes('gitlab.com')) return 'GitLab';
-    if (url.includes('bitbucket.org')) return 'Bitbucket';
-    return 'Git';
+    if (url.includes("github.com")) return "GitHub";
+    if (url.includes("gitlab.com")) return "GitLab";
+    if (url.includes("bitbucket.org")) return "Bitbucket";
+    return "Git";
   };
 
   const provider = getProvider(pendingCloneUrl);
 
   const getTokenHelpUrl = (): string => {
     switch (provider) {
-      case 'GitHub':
-        return 'https://github.com/settings/tokens/new?description=Git%20Visualizer&scopes=repo';
-      case 'GitLab':
-        return 'https://gitlab.com/-/user_settings/personal_access_tokens';
-      case 'Bitbucket':
-        return 'https://bitbucket.org/account/settings/app-passwords/';
+      case "GitHub":
+        return "https://github.com/settings/tokens/new?description=Git%20Visualizer&scopes=repo";
+      case "GitLab":
+        return "https://gitlab.com/-/user_settings/personal_access_tokens";
+      case "Bitbucket":
+        return "https://bitbucket.org/account/settings/app-passwords/";
       default:
-        return '';
+        return "";
     }
   };
 
@@ -48,7 +48,7 @@ export function AuthTokenModal() {
       await retryCloneWithToken(token.trim(), saveToken);
     } finally {
       setIsSubmitting(false);
-      setToken('');
+      setToken("");
     }
   };
 
@@ -74,7 +74,9 @@ export function AuthTokenModal() {
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Authentication Required</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Authentication Required
+              </h2>
               <p className="text-sm text-purple-700 dark:text-purple-400">
                 This is a private repository
               </p>
@@ -85,14 +87,17 @@ export function AuthTokenModal() {
         {/* Content */}
         <form onSubmit={handleSubmit} className="px-6 py-4">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
-            To access this private {provider} repository, please enter a Personal Access Token (PAT)
-            with repository read permissions.
+            To access this private {provider} repository, please enter a
+            Personal Access Token (PAT) with repository read permissions.
           </p>
 
           <div className="space-y-4">
             {/* Token Input */}
             <div>
-              <label htmlFor="token" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label
+                htmlFor="token"
+                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              >
                 Personal Access Token
               </label>
               <input
@@ -122,7 +127,7 @@ export function AuthTokenModal() {
             {/* Help Link */}
             {getTokenHelpUrl() && (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Don't have a token?{' '}
+                Don't have a token?{" "}
                 <a
                   href={getTokenHelpUrl()}
                   target="_blank"
@@ -136,8 +141,10 @@ export function AuthTokenModal() {
 
             {/* Security Note */}
             <div className="p-3 bg-gray-50 dark:bg-gray-900 rounded-lg text-xs text-gray-500 dark:text-gray-400">
-              <strong>Security:</strong> Your token is sent directly to {provider} for authentication
-              and is {saveToken ? 'stored locally in your browser' : 'not stored'}. We never log or store tokens on our servers.
+              <strong>Security:</strong> Your token is sent directly to{" "}
+              {provider} for authentication and is{" "}
+              {saveToken ? "stored locally in your browser" : "not stored"}. We
+              never log or store tokens on our servers.
             </div>
           </div>
         </form>
@@ -159,14 +166,29 @@ export function AuthTokenModal() {
           >
             {isSubmitting ? (
               <>
-                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                <svg
+                  className="animate-spin w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
                 Authenticating...
               </>
             ) : (
-              'Clone Repository'
+              "Clone Repository"
             )}
           </button>
         </div>

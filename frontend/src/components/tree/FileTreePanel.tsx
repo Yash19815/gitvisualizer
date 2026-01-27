@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { useRepositoryStore } from '../../store/repositoryStore';
-import { FileTree } from './FileTree';
-import { FileViewer } from './FileViewer';
+import { useEffect } from "react";
+import { useRepositoryStore } from "../../store/repositoryStore";
+import { FileTree } from "./FileTree";
+import { FileViewer } from "./FileViewer";
 
 export function FileTreePanel() {
   const {

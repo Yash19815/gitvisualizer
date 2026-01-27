@@ -1,6 +1,6 @@
-import { memo } from 'react';
-import { Handle, Position } from '@xyflow/react';
-import type { CommitNodeData } from '../../utils/layoutEngine';
+import { memo } from "react";
+import { Handle, Position } from "@xyflow/react";
+import type { CommitNodeData } from "../../utils/layoutEngine";
 
 function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
@@ -8,8 +8,8 @@ function formatRelativeDate(dateString: string): string {
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'today';
-  if (diffDays === 1) return 'yesterday';
+  if (diffDays === 0) return "today";
+  if (diffDays === 1) return "yesterday";
   if (diffDays < 7) return `${diffDays}d ago`;
   if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
   if (diffDays < 365) return `${Math.floor(diffDays / 30)}mo ago`;
@@ -44,8 +44,8 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
           px-2 py-1.5 rounded-md border-2 bg-white dark:bg-gray-800 shadow-sm
           w-[200px] transition-all duration-200 cursor-pointer
           hover:shadow-md
-          ${selected ? 'ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-900' : ''}
-          ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30' : ''}
+          ${selected ? "ring-2 ring-blue-500 ring-offset-1 dark:ring-offset-gray-900" : ""}
+          ${isHighlighted && !selected ? "ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30" : ""}
         `}
         style={{ borderColor: color }}
       >
@@ -68,9 +68,9 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
             <span
               className={`
                 text-[10px] px-1.5 py-0.5 rounded-full truncate max-w-[60px]
-                ${commit.refs[0].type === 'branch' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : ''}
-                ${commit.refs[0].type === 'tag' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''}
-                ${commit.refs[0].type === 'remote' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ''}
+                ${commit.refs[0].type === "branch" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : ""}
+                ${commit.refs[0].type === "tag" ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300" : ""}
+                ${commit.refs[0].type === "remote" ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : ""}
               `}
               title={commit.refs[0].name}
             >
@@ -79,7 +79,10 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
           )}
         </div>
 
-        <p className="text-[11px] font-medium text-gray-900 dark:text-gray-100 truncate mt-1" title={commit.message}>
+        <p
+          className="text-[11px] font-medium text-gray-900 dark:text-gray-100 truncate mt-1"
+          title={commit.message}
+        >
           {commit.message}
         </p>
 
@@ -100,8 +103,8 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
         px-4 py-3 rounded-lg border-2 bg-white dark:bg-gray-800 shadow-md
         w-[280px] transition-all duration-200 cursor-pointer
         hover:shadow-lg
-        ${selected ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900' : ''}
-        ${isHighlighted && !selected ? 'ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30' : ''}
+        ${selected ? "ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-gray-900" : ""}
+        ${isHighlighted && !selected ? "ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-gray-900 bg-amber-50 dark:bg-amber-900/30" : ""}
       `}
       style={{ borderColor: color }}
     >
@@ -123,15 +126,15 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
             <code className="text-xs font-mono text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
               {commit.shortHash}
             </code>
-            {commit.refs.slice(0, 3).map(ref => (
+            {commit.refs.slice(0, 3).map((ref) => (
               <span
                 key={ref.name}
                 className={`
                   text-xs px-2 py-0.5 rounded-full truncate max-w-[100px]
-                  ${ref.type === 'branch' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : ''}
-                  ${ref.type === 'tag' ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300' : ''}
-                  ${ref.type === 'remote' ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : ''}
-                  ${ref.isHead ? 'font-bold ring-1 ring-blue-400' : ''}
+                  ${ref.type === "branch" ? "bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300" : ""}
+                  ${ref.type === "tag" ? "bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300" : ""}
+                  ${ref.type === "remote" ? "bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300" : ""}
+                  ${ref.isHead ? "font-bold ring-1 ring-blue-400" : ""}
                 `}
                 title={ref.name}
               >
@@ -145,7 +148,10 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
             )}
           </div>
 
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate" title={commit.message}>
+          <p
+            className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate"
+            title={commit.message}
+          >
             {commit.message}
           </p>
 
@@ -171,4 +177,4 @@ export const CommitNode = memo(({ data, selected }: CommitNodeProps) => {
   );
 }, arePropsEqual);
 
-CommitNode.displayName = 'CommitNode';
+CommitNode.displayName = "CommitNode";
