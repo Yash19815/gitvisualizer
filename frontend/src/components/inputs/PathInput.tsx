@@ -1,4 +1,4 @@
-import { useState, type FormEvent, useMemo } from "react";
+import { useState, type FormEvent, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useRepositoryStore } from "../../store/repositoryStore";
 import { isGitUrl } from "../../api/gitApi";
@@ -10,6 +10,13 @@ export function PathInput() {
   const { loadRepo, cloneRepo, isLoading, error, repository } =
     useRepositoryStore();
   const navigate = useNavigate();
+
+  // Clear input when repository is reset to null (e.g., clicking home button)
+  useEffect(() => {
+    if (!repository) {
+      setInput("");
+    }
+  }, [repository]);
 
   const inputType = useMemo(() => {
     const trimmed = input.trim();
