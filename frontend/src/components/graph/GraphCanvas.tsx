@@ -219,9 +219,20 @@ export function GraphCanvas() {
       selectedCommit &&
       prevSelectedCommitRef.current !== selectedCommit.hash
     ) {
+      console.log(
+        "[Zoom] Selected commit changed to:",
+        selectedCommit.hash.substring(0, 7),
+      );
       const selectedNode = nodes.find(
         (node) => node.id === selectedCommit.hash,
       );
+      console.log(
+        "[Zoom] Node found in nodes array:",
+        selectedNode ? "YES" : "NO",
+        "| Total nodes:",
+        nodes.length,
+      );
+
       if (selectedNode) {
         // Calculate center position of the node
         const nodeWidth = graphSettings.compactMode ? 200 : 280;
@@ -233,9 +244,19 @@ export function GraphCanvas() {
         const currentZoom = getZoom();
         const targetZoom = Math.max(currentZoom, 1.2); // Zoom in but not too much
 
+        console.log("[Zoom] Zooming to position:", {
+          x: Math.round(centerX),
+          y: Math.round(centerY),
+          zoom: targetZoom,
+        });
+
         setTimeout(() => {
           setCenter(centerX, centerY, { zoom: targetZoom, duration: 500 });
         }, 50);
+      } else {
+        console.warn(
+          "[Zoom] Cannot zoom - selected commit node not found in rendered nodes. Commit may be filtered out.",
+        );
       }
     }
     prevSelectedCommitRef.current = selectedCommit?.hash || null;
@@ -280,11 +301,21 @@ export function GraphCanvas() {
 
   const handleNavigateToBranch = useCallback(
     (branchName: string) => {
+      console.log(
+        "[Branch Nav] Clicked:",
+        branchName,
+        "| Total commits:",
+        repository?.commits.length,
+      );
       if (!repository) return;
 
       // Find the branch in repository.branches
       const branch = repository.branches.find((b) => b.name === branchName);
       let commitHash = branch?.commit;
+      console.log(
+        "[Branch Nav] Found branch object:",
+        branch ? `yes (commit: ${branch.commit.substring(0, 7)})` : "NO",
+      );
 
       // If not found in branches list (e.g. detached ref or tag treated as branch in colors), search commits
       if (!commitHash) {
@@ -293,13 +324,57 @@ export function GraphCanvas() {
         );
         if (commit) {
           commitHash = commit.hash;
+        } else {
+          console.warn(
+            `Branch "${branchName}" found in legend but its commit is not in the loaded commits. ` +
+              `This might be because the commit was filtered out or hasn't been loaded yet due to streaming.`,
+          );
+          return; // Exit early if we can't find the commit
         }
       }
 
       if (commitHash) {
-        const commit = repository.commits.find((c) => c.hash === commitHash);
+        // Try multiple hash matching strategies
+        let commit = repository.commits.find((c) => c.hash === commitHash);
+
+        // If not found and commitHash looks like it might be short, try startsWith
+        if (!commit && commitHash.length < 40) {
+          commit = repository.commits.find((c) =>
+            c.hash.startsWith(commitHash),
+          );
+        }
+
+        // Also try comparing with commit.shortHash field
+        if (!commit) {
+          commit = repository.commits.find((c) => c.shortHash === commitHash);
+        }
+
+        console.log(
+          "[Branch Nav] Commit found in repository.commits:",
+          commit ? "YES ✓" : "NO ✗",
+        );
+
+        if (!commit) {
+          console.log(
+            "[Branch Nav] Branch commit hash:",
+            commitHash,
+            `(length: ${commitHash.length})`,
+          );
+          if (repository.commits.length > 0) {
+            console.log("[Branch Nav] Sample commit from array:", {
+              hash: repository.commits[0].hash,
+              shortHash: repository.commits[0].shortHash,
+            });
+          }
+        }
+
         if (commit) {
           setSelectedCommit(commit);
+        } else {
+          console.warn(
+            `Branch "${branchName}" points to commit ${commitHash} which is not in the loaded commits. ` +
+              `The commit may have been filtered out.`,
+          );
         }
       }
     },
@@ -467,7 +542,14 @@ export function GraphCanvas() {
         branchColorMap &&
         branchColorMap.size > 0 && (
           <Legend
-            branchColors={branchColorMap}
+            branchColors={
+              // Filter to only show actual branches from repository.branches, not tags or other refs
+              new Map(
+                Array.from(branchColorMap.entries()).filter(([name]) =>
+                  repository?.branches.some((b) => b.name === name),
+                ),
+              )
+            }
             onBranchClick={handleNavigateToBranch}
           />
         )}
