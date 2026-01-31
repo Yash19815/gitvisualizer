@@ -52,7 +52,12 @@ function App() {
   });
 
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showLanding, setShowLanding] = useState(true);
+
+  // Initialize showLanding based on current URL path
+  const [showLanding, setShowLanding] = useState(() => {
+    // Show landing page only if we're at root path and no repository
+    return window.location.pathname === "/" || window.location.pathname === "";
+  });
 
   // Escape key to exit fullscreen
   useEffect(() => {
@@ -64,6 +69,16 @@ function App() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      const path = window.location.pathname;
+      setShowLanding(path === "/" || path === "");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   const handleLeftResize = useCallback((delta: number) => {
     setLeftPanelWidth((prev) =>
@@ -101,9 +116,23 @@ function App() {
     }
   }, [repository]);
 
-  // Show landing page if no repository and user hasn't started
+  // Handle navigation to app from landing page
+  const handleGetStarted = () => {
+    setShowLanding(false);
+    window.history.pushState({}, "", "/app");
+  };
+
+  // Handle navigation back to landing page
+  const handleGoHome = () => {
+    reset();
+    clearUrl();
+    setShowLanding(true);
+    window.history.pushState({}, "", "/");
+  };
+
+  // Show landing page if no repository and at root path
   if (showLanding && !repository) {
-    return <LandingPage onGetStarted={() => setShowLanding(false)} />;
+    return <LandingPage onGetStarted={handleGetStarted} />;
   }
 
   return (
@@ -129,11 +158,7 @@ function App() {
           <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-4">
             {/* Logo and Title - Left - Clickable to go Home */}
             <button
-              onClick={() => {
-                reset();
-                clearUrl();
-                setShowLanding(true);
-              }}
+              onClick={handleGoHome}
               className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               title="Go to home"
             >
