@@ -189,7 +189,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <button
                 onClick={onGetStarted}
-                className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-xl hover:shadow-2xl shadow-primary-500/50 hover:shadow-primary-600/60 ring-2 ring-primary-500/20"
+                className="group relative px-8 py-4 bg-primary-600 hover:bg-primary-700 text-white font-bold rounded-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl"
               >
                 <span className="relative z-10">Get Started</span>
               </button>
@@ -198,7 +198,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
                 href="https://github.com/sharmaniraj009/gitvisualizer"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-8 py-4 bg-white dark:bg-gray-60 border-2 border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400 font-bold rounded-xl hover:bg-primary-50 dark:hover:bg-gray-500 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                className="px-8 py-4 bg-white dark:bg-gray-60 border-2 border-primary-500 dark:border-primary-400 text-primary-600 dark:text-primary-400 font-bold rounded-xl hover:bg-primary-50 dark:hover:bg-gray-500 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 View on GitHub
               </a>
@@ -249,7 +249,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
           {features.map((feature, index) => (
             <div
               key={index}
-              className={`glass-card rounded-2xl p-8 hover:shadow-glow-lg transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 ${
+              className={`glass-card rounded-2xl p-8 transition-all duration-300 transform hover:scale-105 hover:-translate-y-2 ${
                 isVisible ? "animate-fade-in-up" : "opacity-0"
               }`}
               style={{ animationDelay: `${index * 100}ms` }}
@@ -283,7 +283,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </p>
             <button
               onClick={onGetStarted}
-              className="group relative px-10 py-5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg rounded-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-xl hover:shadow-2xl shadow-primary-500/50 hover:shadow-primary-600/60 ring-2 ring-primary-500/20"
+              className="group relative px-10 py-5 bg-primary-600 hover:bg-primary-700 text-white font-bold text-lg rounded-xl transition-all duration-300 transform hover:scale-105 hover:-translate-y-1 shadow-lg hover:shadow-xl"
             >
               <span className="relative z-10">Launch Git Visualizer</span>
             </button>
@@ -300,7 +300,7 @@ export function LandingPage({ onGetStarted }: LandingPageProps) {
             </div>
             <div className="flex gap-6">
               <a
-                href="https://github.com/sharmaniraj009/gitvisualizer"
+                href="https://github.com/sharmaniraj009/"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-gray-600 dark:text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 transition-colors"
